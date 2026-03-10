@@ -1,15 +1,28 @@
 import makeWASocket, {
-  useMultiFileAuthState,
-  fetchLatestBaileysVersion,
-  DisconnectReason
+useMultiFileAuthState,
+fetchLatestBaileysVersion,
+DisconnectReason
 } from "@whiskeysockets/baileys"
 
 import qrcode from "qrcode-terminal"
 import axios from "axios"
+import express from "express"
 
-const API_KEY = "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"
+const API_KEY = "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"
 
-async function startBot() {
+/* serveur pour render */
+
+const app = express()
+
+app.get("/", (req,res)=>{
+res.send("OLIMAX 2.0 BOT ACTIF")
+})
+
+app.listen(3000, ()=>{
+console.log("Serveur OLIMAX actif")
+})
+
+async function startBot(){
 
 const { state, saveCreds } = await useMultiFileAuthState("./session")
 
@@ -18,25 +31,25 @@ const { version } = await fetchLatestBaileysVersion()
 const sock = makeWASocket({
 version,
 auth: state,
-browser: ["OLIMAX 2.0","Chrome","1.0"]
+browser:["OLIMAX 2.0","Chrome","1.0"]
 })
 
 sock.ev.on("creds.update", saveCreds)
 
-sock.ev.on("connection.update", (update) => {
+sock.ev.on("connection.update",(update)=>{
 
 const { connection, qr, lastDisconnect } = update
 
 if(qr){
-console.log("📱 Scanner ce QR avec WhatsApp")
+console.log("Scanner ce QR avec WhatsApp")
 qrcode.generate(qr,{small:true})
 }
 
-if(connection === "open"){
-console.log("✅ OLIMAX 2.0 connecté à WhatsApp")
+if(connection==="open"){
+console.log("OLIMAX 2.0 connecté à WhatsApp")
 }
 
-if(connection === "close"){
+if(connection==="close"){
 
 const shouldReconnect =
 lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
@@ -49,7 +62,7 @@ startBot()
 
 })
 
-sock.ev.on("messages.upsert", async ({messages}) => {
+sock.ev.on("messages.upsert", async ({messages})=>{
 
 const msg = messages[0]
 
@@ -63,17 +76,17 @@ msg.message.conversation ||
 msg.message.extendedTextMessage?.text ||
 ""
 
-let reply = ""
+let reply=""
 
 if(text.toLowerCase().includes("qui t'a créé")){
 
-reply = `Je suis *OLIMAX 2.0*.
+reply=`Je suis *OLIMAX 2.0*.
 
-J'ai été créé par *OLIVIER MANGILA*.
+Créé par *OLIVIER MANGILA*.
 
-Mon utilisateur principal est *OLIVIER MANGILA*.
+Utilisateur principal : *Olivier Mangila*
 
-Si vous voulez un assistant IA comme moi contactez :
+Contact créateur :
 
 📞 +243981240435`
 
@@ -86,11 +99,11 @@ try{
 const response = await axios.post(
 "https://openrouter.ai/api/v1/chat/completions",
 {
-model:"openai/gpt-4o-mini",
+model:"mistralai/mistral-7b-instruct",
 messages:[
 {
 role:"system",
-content:"Tu es OLIMAX 2.0, une intelligence artificielle créée par OLIVIER MANGILA. Tu réponds aux questions des utilisateurs comme ChatGPT."
+content:"Tu es OLIMAX 2.0 une intelligence artificielle créée par Olivier Mangila. Tu réponds comme ChatGPT."
 },
 {
 role:"user",
@@ -102,7 +115,7 @@ content:text
 headers:{
 Authorization:`Bearer ${API_KEY}`,
 "Content-Type":"application/json",
-"HTTP-Referer":"https://olimax-bot.ai",
+"HTTP-Referer":"https://olimax.ai",
 "X-Title":"OLIMAX 2.0"
 }
 }
@@ -112,9 +125,7 @@ reply = response.data.choices[0].message.content
 
 }catch(e){
 
-console.log(e.response?.data || e.message)
-
-reply = "⚠️ OLIMAX 2.0 : erreur IA. Réessaie plus tard."
+reply="Erreur IA. Réessaie plus tard."
 
 }
 

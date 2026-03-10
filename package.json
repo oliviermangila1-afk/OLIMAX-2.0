@@ -1,18 +1,16 @@
 {
   "name": "olimax-2.0",
   "version": "1.0.0",
-  "description": "OLIMAX 2.0 Assistant IA WhatsApp",
+  "description": "OLIMAX 2.0 WhatsApp AI Bot",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js"
   },
-  "author": "OLIVIER MANGILA",
-  "license": "ISC",
   "dependencies": {
-    "@whiskeysockets/baileys": "^7.0.0-rc.9",
-    "axios": "^1.13.6",
-    "openai": "^6.27.0",
+    "@whiskeysockets/baileys": "^6.7.5",
+    "axios": "^1.6.0",
+    "express": "^4.18.2",
     "qrcode-terminal": "^0.12.0"
   }
 }
