@@ -8,7 +8,7 @@ import qrcode from "qrcode-terminal"
 import axios from "axios"
 import express from "express"
 
-const API_KEY = "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"
+const API_KEY = process.env.OPENROUTER_API_KEY
 
 /* serveur pour render */
 
