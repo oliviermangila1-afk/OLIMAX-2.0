@@ -99,7 +99,7 @@ try{
 const response = await axios.post(
 "https://openrouter.ai/api/v1/chat/completions",
 {
-model:"mistralai/mistral-7b-instruct",
+model:"openchat/openchat-7b",
 messages:[
 {
 role:"system",
@@ -120,11 +120,11 @@ Authorization:`Bearer ${API_KEY}`,
 }
 }
 )
-
-reply = response.data.choices[0].message.content
+reply = response?.data?.choices?.[0]?.message?.content || "Je n'ai pas trouvé de réponse."
 
 }catch(e){
 
+console.log(e.response?.data || e.message)
 reply="Erreur IA. Réessaie plus tard."
 
 }
