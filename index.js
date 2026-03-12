@@ -1,33 +1,60 @@
-import makeWASocket, { useMultiFileAuthState } from "@whiskeysockets/baileys"
+import makeWASocket,{
+useMultiFileAuthState,
+fetchLatestBaileysVersion,
+DisconnectReason
+} from "@whiskeysockets/baileys"
+
 import pino from "pino"
+import QRCode from "qrcode"
 
 const ownerName = "Olivier Mangila"
-const ownerNumber = "243981240435"
+const ownerNumber = "+243981240435"
 
 async function startBot(){
 
-const { state, saveCreds } = await useMultiFileAuthState("session")
+console.log("Démarrage OLIMAX 2.0...")
+
+const { state, saveCreds } = await useMultiFileAuthState("./session")
+const { version } = await fetchLatestBaileysVersion()
 
 const sock = makeWASocket({
+version,
 auth: state,
-printQRInTerminal: true,
-logger: pino({ level: "silent" })
+logger: pino({ level:"silent" })
 })
 
-sock.ev.on("connection.update", (update)=>{
+sock.ev.on("connection.update", async (update)=>{
 
-const { connection } = update
+const { connection, qr, lastDisconnect } = update
+
+// afficher QR dans Railway
+if(qr){
+console.log("SCAN CE QR AVEC WHATSAPP")
+const qrText = await QRCode.toString(qr,{type:"terminal"})
+console.log(qrText)
+}
 
 if(connection === "open"){
-console.log("OLIMAX-2.0 CONNECTÉ ✅")
+console.log("OLIMAX 2.0 CONNECTÉ ✅")
+}
+
+if(connection === "close"){
+
+const shouldReconnect =
+lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+
+if(shouldReconnect){
+console.log("Reconnexion...")
+startBot()
+}
+
 }
 
 })
 
-sock.ev.on("messages.upsert", async ({ messages }) => {
+sock.ev.on("messages.upsert", async ({messages})=>{
 
 const msg = messages[0]
-
 if(!msg.message) return
 
 const text =
@@ -35,40 +62,17 @@ msg.message.conversation ||
 msg.message.extendedTextMessage?.text ||
 ""
 
-const from = msg.key.remoteJid
+const sender = msg.key.remoteJid
 
-// bonjour
-if(text.toLowerCase().includes("bonjour")){
-await sock.sendMessage(from,{
-text:"Bonjour 👋 je suis *OLIMAX-2.0*, un bot WhatsApp intelligent."
-})
-}
-
-// qui es tu
 if(text.toLowerCase().includes("qui es tu")){
-await sock.sendMessage(from,{
-text:"Je suis *OLIMAX-2.0* 🤖 un bot créé pour automatiser WhatsApp."
+await sock.sendMessage(sender,{
+text:"Je suis OLIMAX 2.0 🤖 un bot WhatsApp intelligent."
 })
 }
 
-// qui t'a créé
 if(text.toLowerCase().includes("qui t'a créé")){
-await sock.sendMessage(from,{
-text:`J'ai été créé par *${ownerName}* 💻`
-})
-}
-
-// contact
-if(text.toLowerCase().includes("contact")){
-await sock.sendMessage(from,{
-text:`📞 Contact du créateur : +${ownerNumber}`
-})
-}
-
-// olimax
-if(text.toLowerCase().includes("olimax")){
-await sock.sendMessage(from,{
-text:`OLIMAX-2.0 est un bot WhatsApp développé en Node.js par ${ownerName}.`
+await sock.sendMessage(sender,{
+text:`Je suis OLIMAX 2.0\nCréé par ${ownerName}\nContact : ${ownerNumber}`
 })
 }
 
