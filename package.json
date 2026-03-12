@@ -1,9 +1,8 @@
 {
 "name":"olimax-2.0",
 "version":"1.0.0",
-"description":"OLIMAX 2.0 WhatsApp AI Bot",
-"main":"index.js",
 "type":"module",
+"main":"index.js",
 "scripts":{
 "start":"node index.js"
 },

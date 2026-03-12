@@ -12,7 +12,7 @@ import fs from "fs"
 
 const API_KEY = process.env.OPENROUTER_API_KEY
 
-/* serveur render */
+/* serveur web */
 
 const app = express()
 
@@ -25,6 +25,8 @@ const PORT = process.env.PORT || 3000
 app.listen(PORT,()=>{
 console.log("Serveur OLIMAX actif")
 })
+
+/* IA */
 
 async function askAI(text){
 
@@ -48,9 +50,7 @@ content:text
 {
 headers:{
 Authorization:`Bearer ${API_KEY}`,
-"Content-Type":"application/json",
-"HTTP-Referer":"https://olimax-bot.com",
-"X-Title":"OLIMAX 2.0"
+"Content-Type":"application/json"
 }
 }
 )
@@ -59,13 +59,15 @@ return response.data.choices[0].message.content
 
 }catch(e){
 
-console.log("ERREUR IA :", e.response?.data || e.message)
+console.log("Erreur OpenRouter :",e.response?.data || e.message)
 
 return "Erreur IA. Réessaie plus tard."
 
 }
 
 }
+
+/* analyse image */
 
 async function analyseImage(path){
 
@@ -81,7 +83,7 @@ messages:[
 {
 role:"user",
 content:[
-{type:"text",text:"Analyse cette image et explique ce qu'elle contient."},
+{type:"text",text:"Analyse cette image."},
 {
 type:"image_url",
 image_url:{
@@ -112,6 +114,8 @@ return "Je n'arrive pas à analyser l'image."
 
 }
 
+/* démarrage du bot */
+
 async function startBot(){
 
 const { state, saveCreds } = await useMultiFileAuthState("./session")
@@ -136,7 +140,7 @@ qrcode.generate(qr,{small:true})
 }
 
 if(connection==="open"){
-console.log("OLIMAX 2.0 connecté à WhatsApp")
+console.log("OLIMAX connecté à WhatsApp")
 }
 
 if(connection==="close"){
@@ -166,26 +170,22 @@ msg.message.conversation ||
 msg.message.extendedTextMessage?.text ||
 ""
 
-/* commande info */
+/* info créateur */
 
 if(text.toLowerCase().includes("qui t'a créé")){
 
 await sock.sendMessage(sender,{
-text:`Je suis *OLIMAX 2.0*.
+text:`Je suis *OLIMAX 2.0*
 
-Créé par *OLIVIER MANGILA*.
+Créé par *Olivier Mangila*
 
-Utilisateur principal : *Olivier Mangila*
-
-Contact créateur :
-
-📞 +243981240435`
+Contact : +243981240435`
 })
 
 return
 }
 
-/* message texte IA */
+/* message IA */
 
 if(text){
 
