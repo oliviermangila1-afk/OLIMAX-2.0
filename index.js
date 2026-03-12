@@ -83,7 +83,7 @@ messages:[
 {
 role:"user",
 content:[
-{type:"text",text:"Analyse cette image."},
+{type:"text",text:"Analyse cette image et explique ce qu'elle contient."},
 {
 type:"image_url",
 image_url:{
@@ -125,6 +125,7 @@ const { version } = await fetchLatestBaileysVersion()
 const sock = makeWASocket({
 version,
 auth:state,
+printQRInTerminal:true,
 browser:["OLIMAX 2.0","Chrome","1.0"]
 })
 
@@ -140,7 +141,7 @@ qrcode.generate(qr,{small:true})
 }
 
 if(connection==="open"){
-console.log("OLIMAX connecté à WhatsApp")
+console.log("OLIMAX 2.0 connecté à WhatsApp")
 }
 
 if(connection==="close"){
@@ -170,14 +171,14 @@ msg.message.conversation ||
 msg.message.extendedTextMessage?.text ||
 ""
 
-/* info créateur */
+/* commande info */
 
 if(text.toLowerCase().includes("qui t'a créé")){
 
 await sock.sendMessage(sender,{
-text:`Je suis *OLIMAX 2.0*
+text:`Je suis *OLIMAX 2.0*.
 
-Créé par *Olivier Mangila*
+Créé par *OLIVIER MANGILA*
 
 Contact : +243981240435`
 })
