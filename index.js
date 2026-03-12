@@ -1,6 +1,5 @@
-import makeWASocket, { useMultiFileAuthState } from "@whiskeysockets/baileys"
+import makeWASocket, { useMultiFileAuthState, DisconnectReason } from "@whiskeysockets/baileys"
 import pino from "pino"
-import QRCode from "qrcode"
 
 async function startBot() {
 
@@ -8,20 +7,23 @@ const { state, saveCreds } = await useMultiFileAuthState("session")
 
 const sock = makeWASocket({
 auth: state,
+printQRInTerminal: true,
 logger: pino({ level: "silent" })
 })
 
-sock.ev.on("connection.update", async (update) => {
+sock.ev.on("connection.update", (update) => {
 
-const { qr, connection } = update
+const { connection, lastDisconnect } = update
 
-if (qr) {
-console.log("SCAN QR CODE:")
-console.log(await QRCode.toString(qr,{type:"terminal"}))
+if(connection === "open"){
+console.log("BOT CONNECTÉ ✅")
 }
 
-if (connection === "open") {
-console.log("BOT CONNECTÉ ✅")
+if(connection === "close"){
+const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+if(shouldReconnect){
+startBot()
+}
 }
 
 })
