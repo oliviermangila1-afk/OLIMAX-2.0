@@ -12,8 +12,6 @@ import fs from "fs"
 
 const API_KEY = process.env.OPENROUTER_API_KEY
 
-/* serveur railway */
-
 const app = express()
 
 app.get("/",(req,res)=>{
@@ -23,8 +21,6 @@ res.send("OLIMAX 2.0 BOT ACTIF")
 app.listen(3000,()=>{
 console.log("Serveur OLIMAX actif")
 })
-
-/* fonction IA */
 
 async function askAI(text){
 
@@ -37,7 +33,7 @@ model:"openchat/openchat-7b",
 messages:[
 {
 role:"system",
-content:"Tu es OLIMAX 2.0 une intelligence artificielle créée par Olivier Mangila. Tu aides les utilisateurs comme ChatGPT."
+content:"Tu es OLIMAX 2.0 une intelligence artificielle créée par Olivier Mangila."
 },
 {
 role:"user",
@@ -57,15 +53,13 @@ return response.data.choices[0].message.content
 
 }catch(e){
 
-console.log(e.response?.data || e.message)
+console.log(e)
 
 return "Erreur IA. Réessaie plus tard."
 
 }
 
 }
-
-/* analyse image */
 
 async function analyseImage(path){
 
@@ -81,12 +75,10 @@ messages:[
 {
 role:"user",
 content:[
-{type:"text",text:"Analyse cette image et explique ce qu'elle contient."},
+{type:"text",text:"Analyse cette image"},
 {
 type:"image_url",
-image_url:{
-url:`data:image/jpeg;base64,${base64}`
-}
+image_url:{url:`data:image/jpeg;base64,${base64}`}
 }
 ]
 }
@@ -104,15 +96,13 @@ return response.data.choices[0].message.content
 
 }catch(e){
 
-console.log(e.response?.data || e.message)
+console.log(e)
 
-return "Je n'arrive pas à analyser l'image."
-
-}
+return "Impossible d'analyser l'image."
 
 }
 
-/* bot whatsapp */
+}
 
 async function startBot(){
 
@@ -124,9 +114,7 @@ const sock = makeWASocket({
 version,
 auth:state,
 printQRInTerminal:true,
-connectTimeoutMs:60000,
-keepAliveIntervalMs:10000,
-browser:["OLIMAX 2.0","Chrome","1.0"]
+browser:["OLIMAX","Chrome","1.0"]
 })
 
 sock.ev.on("creds.update",saveCreds)
@@ -141,7 +129,7 @@ qrcode.generate(qr,{small:true})
 }
 
 if(connection==="open"){
-console.log("OLIMAX 2.0 connecté à WhatsApp")
+console.log("OLIMAX connecté à WhatsApp")
 }
 
 if(connection==="close"){
@@ -171,23 +159,6 @@ msg.message.conversation ||
 msg.message.extendedTextMessage?.text ||
 ""
 
-/* commande créateur */
-
-if(text.toLowerCase().includes("qui t'a créé")){
-
-await sock.sendMessage(sender,{
-text:`Je suis *OLIMAX 2.0*
-
-Créé par *OLIVIER MANGILA*
-
-📞 +243981240435`
-})
-
-return
-}
-
-/* message texte */
-
 if(text){
 
 const reply = await askAI(text)
@@ -195,8 +166,6 @@ const reply = await askAI(text)
 await sock.sendMessage(sender,{text:reply})
 
 }
-
-/* analyse image */
 
 if(msg.message.imageMessage){
 
