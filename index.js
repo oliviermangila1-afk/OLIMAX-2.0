@@ -20,7 +20,9 @@ app.get("/",(req,res)=>{
 res.send("OLIMAX 2.0 BOT ACTIF")
 })
 
-app.listen(3000,()=>{
+const PORT = process.env.PORT || 3000
+
+app.listen(PORT,()=>{
 console.log("Serveur OLIMAX actif")
 })
 
@@ -31,7 +33,7 @@ try{
 const response = await axios.post(
 "https://openrouter.ai/api/v1/chat/completions",
 {
-model:"openchat/openchat-7b",
+model:"mistralai/mistral-7b-instruct",
 messages:[
 {
 role:"system",
@@ -46,7 +48,9 @@ content:text
 {
 headers:{
 Authorization:`Bearer ${API_KEY}`,
-"Content-Type":"application/json"
+"Content-Type":"application/json",
+"HTTP-Referer":"https://olimax-bot.com",
+"X-Title":"OLIMAX 2.0"
 }
 }
 )
@@ -55,7 +59,7 @@ return response.data.choices[0].message.content
 
 }catch(e){
 
-console.log(e.response?.data || e.message)
+console.log("ERREUR IA :", e.response?.data || e.message)
 
 return "Erreur IA. Réessaie plus tard."
 
