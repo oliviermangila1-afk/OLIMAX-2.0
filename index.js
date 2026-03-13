@@ -1,18 +1,20 @@
-import makeWASocket,{
+import makeWASocket, {
 useMultiFileAuthState,
 fetchLatestBaileysVersion,
 DisconnectReason
 } from "@whiskeysockets/baileys"
 
 import pino from "pino"
-import QRCode from "qrcode"
+import qrcode from "qrcode-terminal"
 
 const ownerName = "Olivier Mangila"
 const ownerNumber = "+243981240435"
+const botName = "OLIMAX-2.0"
 
 async function startBot(){
 
-console.log("Démarrage OLIMAX 2.0...")
+console.log(`Démarrage de ${botName}...`)
+console.log("Connexion à WhatsApp...")
 
 const { state, saveCreds } = await useMultiFileAuthState("./session")
 const { version } = await fetchLatestBaileysVersion()
@@ -20,24 +22,26 @@ const { version } = await fetchLatestBaileysVersion()
 const sock = makeWASocket({
 version,
 auth: state,
-logger: pino({ level:"silent" })
+printQRInTerminal: false,
+logger: pino({ level: "silent" })
 })
 
-sock.ev.on("connection.update", async (update)=>{
+sock.ev.on("connection.update", (update)=>{
 
-const { connection, qr, lastDisconnect } = update
+const { connection, lastDisconnect, qr } = update
 
-// afficher QR dans Railway
+// QR CODE
 if(qr){
 console.log("SCAN CE QR AVEC WHATSAPP")
-const qrText = await QRCode.toString(qr,{type:"terminal"})
-console.log(qrText)
+qrcode.generate(qr,{ small:true })
 }
 
+// CONNECTÉ
 if(connection === "open"){
-console.log("OLIMAX 2.0 CONNECTÉ ✅")
+console.log(`${botName} CONNECTÉ ✅`)
 }
 
+// RECONNEXION
 if(connection === "close"){
 
 const shouldReconnect =
@@ -46,33 +50,55 @@ lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
 if(shouldReconnect){
 console.log("Reconnexion...")
 startBot()
+}else{
+console.log("Connexion fermée.")
 }
 
 }
 
 })
 
-sock.ev.on("messages.upsert", async ({messages})=>{
+sock.ev.on("messages.upsert", async ({ messages })=>{
 
 const msg = messages[0]
 if(!msg.message) return
+
+const sender = msg.key.remoteJid
 
 const text =
 msg.message.conversation ||
 msg.message.extendedTextMessage?.text ||
 ""
 
-const sender = msg.key.remoteJid
+const message = text.toLowerCase()
 
-if(text.toLowerCase().includes("qui es tu")){
+// QUI ES TU
+if(message.includes("qui es tu")){
 await sock.sendMessage(sender,{
-text:"Je suis OLIMAX 2.0 🤖 un bot WhatsApp intelligent."
+text:`Je suis ${botName} 🤖\nUn bot WhatsApp intelligent.`
 })
 }
 
-if(text.toLowerCase().includes("qui t'a créé")){
+// QUI T'A CRÉÉ
+if(message.includes("qui t'a créé") || message.includes("qui ta cree")){
 await sock.sendMessage(sender,{
-text:`Je suis OLIMAX 2.0\nCréé par ${ownerName}\nContact : ${ownerNumber}`
+text:`Je suis ${botName}\nCréé par : ${ownerName}\nContact : ${ownerNumber}`
+})
+}
+
+// MENU
+if(message === ".menu"){
+await sock.sendMessage(sender,{
+text:
+`🤖 ${botName}
+
+Commandes :
+
+.menu
+qui es tu
+qui t'a créé
+
+Créateur : ${ownerName}`
 })
 }
 
