@@ -1,114 +1,103 @@
-import makeWASocket,{
-useMultiFileAuthState,
-fetchLatestBaileysVersion,
-DisconnectReason
+import makeWASocket, {
+DisconnectReason,
+useMultiFileAuthState
 } from "@whiskeysockets/baileys"
 
 import pino from "pino"
 
-const botName = "OLIMAX-2.0"
-const ownerName = "Olivier Mangila"
-const ownerNumber = "243981240435"
+async function startBot() {
 
-async function startBot(){
-
-console.log(`Démarrage de ${botName}...`)
+console.log("Démarrage de OLIMAX-2.0...")
 console.log("Connexion à WhatsApp...")
 
-const { state, saveCreds } = await useMultiFileAuthState("./session")
-const { version } = await fetchLatestBaileysVersion()
+const { state, saveCreds } = await useMultiFileAuthState("session")
 
 const sock = makeWASocket({
-version,
+logger: pino({ level: "silent" }),
 auth: state,
-logger: pino({ level:"silent" })
+browser: ["OLIMAX", "Chrome", "1.0"]
 })
 
-sock.ev.on("connection.update", async(update)=>{
+sock.ev.on("creds.update", saveCreds)
+
+sock.ev.on("connection.update", async (update) => {
 
 const { connection, lastDisconnect } = update
 
-if(connection === "open"){
-console.log(`${botName} CONNECTÉ ✅`)
-}
-
-if(connection === "close"){
+if (connection === "close") {
 
 const shouldReconnect =
-lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+(lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut)
 
-if(shouldReconnect){
 console.log("Reconnexion...")
+
+if (shouldReconnect) {
 startBot()
 }
 
 }
 
-})
-
-if(!sock.authState.creds.registered){
-
-const code = await sock.requestPairingCode(ownerNumber)
-
-console.log("CODE DE CONNEXION WHATSAPP : ", code)
-
+if (connection === "open") {
+console.log("OLIMAX-2.0 connecté à WhatsApp")
 }
 
-sock.ev.on("messages.upsert", async({ messages })=>{
+})
+
+sock.ev.on("messages.upsert", async ({ messages }) => {
 
 const msg = messages[0]
-if(!msg.message) return
 
-const sender = msg.key.remoteJid
+if (!msg.message) return
 
 const text =
 msg.message.conversation ||
-msg.message.extendedTextMessage?.text ||
-""
+msg.message.extendedTextMessage?.text
+
+const from = msg.key.remoteJid
+
+if (!text) return
 
 const message = text.toLowerCase()
 
-// QUI ES TU
-if(message.includes("qui es tu")){
-await sock.sendMessage(sender,{
-text:`Je suis ${botName} 🤖
+// réponses automatiques
 
-Un bot WhatsApp intelligent créé pour automatiser des tâches et répondre aux utilisateurs.
+if (message.includes("qui t'a créé")) {
 
-Créateur : ${ownerName}
-Contact : ${ownerNumber}`
+await sock.sendMessage(from, {
+text:
+"J'ai été créé par OLIVIER MANGILA KASONGO. Un passionné de technologie et développeur du projet OLIMAX-2.0."
 })
+
 }
 
-// QUI T'A CRÉÉ
-if(message.includes("qui t'a créé") || message.includes("qui ta cree")){
-await sock.sendMessage(sender,{
-text:`Je suis ${botName}
+else if (message.includes("qui es tu")) {
 
-Créé par : ${ownerName}
-Numéro : ${ownerNumber}`
+await sock.sendMessage(from, {
+text:
+"Je suis OLIMAX-2.0, un assistant WhatsApp intelligent développé par OLIVIER MANGILA KASONGO."
 })
+
 }
 
-// MENU
-if(message === ".menu"){
-await sock.sendMessage(sender,{
-text:`🤖 ${botName}
+else if (message.includes("numéro")) {
 
-Commandes disponibles :
-
-.menu
-qui es tu
-qui t'a créé
-
-Créateur : ${ownerName}
-Contact : ${ownerNumber}`
+await sock.sendMessage(from, {
+text:
+"Le créateur du bot est OLIVIER MANGILA KASONGO. Contact WhatsApp disponible via ce numéro."
 })
+
+}
+
+else if (message.includes("olimax")) {
+
+await sock.sendMessage(from, {
+text:
+"OLIMAX-2.0 est un bot WhatsApp développé pour automatiser les réponses et fournir des informations intelligentes."
+})
+
 }
 
 })
-
-sock.ev.on("creds.update", saveCreds)
 
 }
 
