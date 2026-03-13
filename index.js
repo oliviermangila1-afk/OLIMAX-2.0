@@ -1,15 +1,14 @@
-import makeWASocket, {
+import makeWASocket,{
 useMultiFileAuthState,
 fetchLatestBaileysVersion,
 DisconnectReason
 } from "@whiskeysockets/baileys"
 
 import pino from "pino"
-import qrcode from "qrcode-terminal"
 
-const ownerName = "Olivier Mangila"
-const ownerNumber = "+243981240435"
 const botName = "OLIMAX-2.0"
+const ownerName = "Olivier Mangila"
+const ownerNumber = "243981240435"
 
 async function startBot(){
 
@@ -22,26 +21,17 @@ const { version } = await fetchLatestBaileysVersion()
 const sock = makeWASocket({
 version,
 auth: state,
-printQRInTerminal: false,
-logger: pino({ level: "silent" })
+logger: pino({ level:"silent" })
 })
 
-sock.ev.on("connection.update", (update)=>{
+sock.ev.on("connection.update", async(update)=>{
 
-const { connection, lastDisconnect, qr } = update
+const { connection, lastDisconnect } = update
 
-// QR CODE
-if(qr){
-console.log("SCAN CE QR AVEC WHATSAPP")
-qrcode.generate(qr,{ small:true })
-}
-
-// CONNECTÉ
 if(connection === "open"){
 console.log(`${botName} CONNECTÉ ✅`)
 }
 
-// RECONNEXION
 if(connection === "close"){
 
 const shouldReconnect =
@@ -50,15 +40,21 @@ lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
 if(shouldReconnect){
 console.log("Reconnexion...")
 startBot()
-}else{
-console.log("Connexion fermée.")
 }
 
 }
 
 })
 
-sock.ev.on("messages.upsert", async ({ messages })=>{
+if(!sock.authState.creds.registered){
+
+const code = await sock.requestPairingCode(ownerNumber)
+
+console.log("CODE DE CONNEXION WHATSAPP : ", code)
+
+}
+
+sock.ev.on("messages.upsert", async({ messages })=>{
 
 const msg = messages[0]
 if(!msg.message) return
@@ -75,30 +71,38 @@ const message = text.toLowerCase()
 // QUI ES TU
 if(message.includes("qui es tu")){
 await sock.sendMessage(sender,{
-text:`Je suis ${botName} 🤖\nUn bot WhatsApp intelligent.`
+text:`Je suis ${botName} 🤖
+
+Un bot WhatsApp intelligent créé pour automatiser des tâches et répondre aux utilisateurs.
+
+Créateur : ${ownerName}
+Contact : ${ownerNumber}`
 })
 }
 
 // QUI T'A CRÉÉ
 if(message.includes("qui t'a créé") || message.includes("qui ta cree")){
 await sock.sendMessage(sender,{
-text:`Je suis ${botName}\nCréé par : ${ownerName}\nContact : ${ownerNumber}`
+text:`Je suis ${botName}
+
+Créé par : ${ownerName}
+Numéro : ${ownerNumber}`
 })
 }
 
 // MENU
 if(message === ".menu"){
 await sock.sendMessage(sender,{
-text:
-`🤖 ${botName}
+text:`🤖 ${botName}
 
-Commandes :
+Commandes disponibles :
 
 .menu
 qui es tu
 qui t'a créé
 
-Créateur : ${ownerName}`
+Créateur : ${ownerName}
+Contact : ${ownerNumber}`
 })
 }
 
