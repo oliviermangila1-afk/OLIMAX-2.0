@@ -1,18 +1,19 @@
 import makeWASocket, {
 fetchLatestBaileysVersion,
-useMultiFileAuthState
+useMultiFileAuthState,
+downloadMediaMessage
 } from "@whiskeysockets/baileys"
 
 import pino from "pino"
 import axios from "axios"
 
-/* ========= INFORMATIONS ========= */
+/* ===== INFORMATIONS CREATEUR ===== */
 
-const BOT_NAME = "OLIMAX-2.0"
+const BOT_NAME = "OLIMAX-3.0"
 const OWNER_NAME = "OLIVIER MANGILA"
 const OWNER_NUMBER = "0981240435"
 
-/* ================================ */
+/* ================================= */
 
 const API_KEY = process.env.OPENROUTER_API_KEY
 
@@ -28,7 +29,7 @@ role:"system",
 content:`Tu es ${BOT_NAME}, une intelligence artificielle WhatsApp.
 
 Ton créateur est ${OWNER_NAME}.
-Si quelqu'un demande qui t'a créé, réponds :
+Si quelqu'un demande qui t'a créé répond :
 
 "J'ai été créé par ${OWNER_NAME}. Si vous voulez la même IA contactez-le au ${OWNER_NUMBER}."
 
@@ -51,9 +52,43 @@ Authorization:`Bearer ${API_KEY}`,
 return response.data.choices[0].message.content
 }
 
+/* ===== ANALYSE IMAGE ===== */
+
+async function analyzeImage(imageBuffer){
+
+const response = await axios.post(
+"https://openrouter.ai/api/v1/chat/completions",
+{
+model:"openai/gpt-4o-mini",
+messages:[
+{
+role:"user",
+content:[
+{ type:"text", text:"Analyse cette image et explique ce que tu vois." },
+{
+type:"image_url",
+image_url:{
+url:`data:image/jpeg;base64,${imageBuffer.toString("base64")}`
+}
+}
+]
+}
+]
+},
+{
+headers:{
+Authorization:`Bearer ${API_KEY}`,
+"Content-Type":"application/json"
+}
+}
+)
+
+return response.data.choices[0].message.content
+}
+
 async function startBot(){
 
-console.log("🚀 Démarrage OLIMAX-2.0")
+console.log("🚀 Démarrage OLIMAX-3.0")
 
 const { state, saveCreds } = await useMultiFileAuthState("session")
 const { version } = await fetchLatestBaileysVersion()
@@ -61,24 +96,25 @@ const { version } = await fetchLatestBaileysVersion()
 const sock = makeWASocket({
 version,
 auth: state,
-logger: pino({ level: "silent" }),
-browser: ["OLIMAX","Chrome","1.0"]
+logger: pino({ level:"silent" }),
+browser:["OLIMAX","Chrome","3.0"]
 })
 
 sock.ev.on("creds.update", saveCreds)
 
-/* ===== CONNEXION WHATSAPP ===== */
+/* ===== CONNEXION ===== */
 
-sock.ev.on("connection.update", (update)=>{
+if(!sock.authState.creds.registered){
 
-const { connection, qr } = update
+const code = await sock.requestPairingCode("243981240435")
 
-if(qr){
-console.log("📱 Scan ce QR code avec WhatsApp pour connecter le bot")
-console.log(qr)
+console.log("🔑 Code WhatsApp :", code)
+
 }
 
-if(connection === "open"){
+sock.ev.on("connection.update",(update)=>{
+
+if(update.connection === "open"){
 console.log("✅ OLIMAX connecté à WhatsApp")
 }
 
@@ -92,13 +128,15 @@ const msg = messages[0]
 
 if(!msg.message) return
 
+const chat = msg.key.remoteJid
+
+/* ===== TEXTE ===== */
+
 const text =
 msg.message.conversation ||
 msg.message.extendedTextMessage?.text
 
-if(!text) return
-
-const chat = msg.key.remoteJid
+if(text){
 
 try{
 
@@ -106,13 +144,40 @@ const reply = await askAI(text)
 
 await sock.sendMessage(chat,{ text: reply })
 
-}catch(error){
-
-console.log(error)
+}catch{
 
 await sock.sendMessage(chat,{
-text:"⚠️ L'intelligence artificielle rencontre un problème."
+text:"⚠️ L'IA rencontre un problème temporaire."
 })
+
+}
+
+}
+
+/* ===== IMAGE ===== */
+
+if(msg.message.imageMessage){
+
+try{
+
+const buffer = await downloadMediaMessage(
+msg,
+"buffer",
+{},
+{ logger:pino() }
+)
+
+const result = await analyzeImage(buffer)
+
+await sock.sendMessage(chat,{ text: result })
+
+}catch{
+
+await sock.sendMessage(chat,{
+text:"⚠️ Impossible d'analyser l'image."
+})
+
+}
 
 }
 
