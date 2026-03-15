@@ -6,13 +6,13 @@ useMultiFileAuthState
 import pino from "pino"
 import axios from "axios"
 
-/* ===== TES INFORMATIONS ===== */
+/* ===== INFORMATIONS CREATEUR ===== */
 
 const BOT_NAME = "OLIMAX-2.0"
 const OWNER_NAME = "OLIVIER MANGILA"
-const OWNER_NUMBER = "243981240435"
+const OWNER_NUMBER = "0981240435"
 
-/* ============================ */
+/* ================================ */
 
 const API_KEY = process.env.OPENROUTER_API_KEY
 
@@ -22,30 +22,36 @@ const response = await axios.post(
 "https://openrouter.ai/api/v1/chat/completions",
 {
 model: "openai/gpt-4o-mini",
-messages: [
+messages:[
 {
-role: "system",
-content:
-`Tu es ${BOT_NAME}, une intelligence artificielle WhatsApp créée par ${OWNER_NAME}.
-Si quelqu'un demande qui t'a créé, réponds que c'est ${OWNER_NAME} et donne ce numéro ${OWNER_NUMBER}.
-Réponds intelligemment avec des emojis.`
+role:"system",
+content:`
+Tu es ${BOT_NAME}, une intelligence artificielle WhatsApp.
+
+Ton créateur est ${OWNER_NAME}.
+Si quelqu'un demande qui t'a créé, réponds :
+
+"J'ai été créé par ${OWNER_NAME}. 
+Si vous voulez la même IA contactez-le au ${OWNER_NUMBER}."
+
+Réponds intelligemment avec des emojis.
+`
 },
 {
-role: "user",
-content: question
+role:"user",
+content:question
 }
 ]
 },
 {
 headers:{
-Authorization: `Bearer ${API_KEY}`,
+Authorization:`Bearer ${API_KEY}`,
 "Content-Type":"application/json"
 }
 }
 )
 
 return response.data.choices[0].message.content
-
 }
 
 async function startBot(){
@@ -58,8 +64,9 @@ const { version } = await fetchLatestBaileysVersion()
 const sock = makeWASocket({
 version,
 auth: state,
-logger: pino({ level: "silent" }),
-browser: ["OLIMAX","Chrome","1.0"]
+printQRInTerminal:true,
+logger:pino({ level:"silent" }),
+browser:["OLIMAX","Chrome","1.0"]
 })
 
 sock.ev.on("creds.update", saveCreds)
@@ -69,7 +76,7 @@ sock.ev.on("connection.update",(update)=>{
 const { connection } = update
 
 if(connection === "open"){
-console.log("✅ Bot connecté à WhatsApp")
+console.log("✅ OLIMAX connecté à WhatsApp")
 }
 
 })
@@ -91,14 +98,12 @@ try{
 
 const reply = await askAI(text)
 
-await sock.sendMessage(chat,{
-text: reply
-})
+await sock.sendMessage(chat,{ text: reply })
 
 }catch(e){
 
 await sock.sendMessage(chat,{
-text:"⚠️ L'IA est momentanément indisponible."
+text:"⚠️ L'IA rencontre un problème temporaire."
 })
 
 }
