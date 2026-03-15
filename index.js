@@ -1,11 +1,12 @@
-import makeWASocket, {
+import makeWASocket,{
 useMultiFileAuthState,
 DisconnectReason
 } from "@whiskeysockets/baileys"
 
 import pino from "pino"
+import qrcode from "qrcode-terminal"
 
-async function startBot() {
+async function startBot(){
 
 console.log("Démarrage de OLIMAX-2.0...")
 console.log("Connexion à WhatsApp...")
@@ -15,73 +16,33 @@ const { state, saveCreds } = await useMultiFileAuthState("session")
 const sock = makeWASocket({
 auth: state,
 logger: pino({ level: "silent" }),
-browser: ["OLIMAX-2.0", "Chrome", "1.0"]
+browser: ["OLIMAX-2.0","Chrome","1.0"]
 })
 
 sock.ev.on("creds.update", saveCreds)
 
-sock.ev.on("connection.update", async (update) => {
+sock.ev.on("connection.update", (update)=>{
 
-const { connection, lastDisconnect } = update
+const { connection, qr, lastDisconnect } = update
 
-if (connection === "open") {
+if(qr){
+console.log("Scanne ce QR avec WhatsApp :")
+qrcode.generate(qr,{small:true})
+}
+
+if(connection === "open"){
 console.log("OLIMAX-2.0 connecté à WhatsApp")
 }
 
-if (connection === "close") {
+if(connection === "close"){
 
 const shouldReconnect =
 (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut)
 
-console.log("Connexion fermée")
-
-if (shouldReconnect) {
+if(shouldReconnect){
+console.log("Reconnexion...")
 startBot()
 }
-
-}
-
-})
-
-sock.ev.on("messages.upsert", async ({ messages }) => {
-
-const msg = messages[0]
-
-if (!msg.message) return
-
-const text =
-msg.message.conversation ||
-msg.message.extendedTextMessage?.text
-
-const from = msg.key.remoteJid
-
-if (!text) return
-
-const message = text.toLowerCase()
-
-// tes informations personnelles
-
-if (message.includes("qui t'a créé")) {
-
-await sock.sendMessage(from,{
-text:"J'ai été créé par OLIVIER MANGILA KASONGO, développeur du projet OLIMAX-2.0."
-})
-
-}
-
-else if (message.includes("qui es tu")) {
-
-await sock.sendMessage(from,{
-text:"Je suis OLIMAX-2.0, un bot WhatsApp développé par OLIVIER MANGILA."
-})
-
-}
-
-else if (message.includes("olimax")) {
-
-await sock.sendMessage(from,{
-text:"OLIMAX-2.0 est un assistant WhatsApp conçu pour automatiser les réponses et aider les utilisateurs."
-})
 
 }
 
