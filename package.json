@@ -18,6 +18,7 @@
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.5",
     "axios": "^1.7.7",
+    "express": "^5.2.1",
     "pino": "^8.19.0"
   }
 }

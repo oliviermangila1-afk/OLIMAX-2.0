@@ -6,18 +6,45 @@ DisconnectReason
 
 import pino from "pino"
 import axios from "axios"
+import express from "express"
 
-/* ===== INFOS CREATEUR ===== */
+/* ============================= */
+/* INFOS CREATEUR */
+/* ============================= */
 
 const BOT_NAME = "OLIMAX-3.1"
 const OWNER_NAME = "OLIVIER MANGILA"
 const OWNER_NUMBER = "0981240435"
 
+/* ============================= */
+/* SERVEUR POUR RAILWAY */
+/* ============================= */
+
+const app = express()
+
+app.get("/", (req,res)=>{
+res.send("OLIMAX BOT ONLINE")
+})
+
+const PORT = process.env.PORT || 3000
+
+app.listen(PORT, ()=>{
+console.log("🌐 Serveur actif sur port", PORT)
+})
+
+/* ============================= */
+/* API KEY IA */
+/* ============================= */
+
 const API_KEY = process.env.OPENROUTER_API_KEY
 
-/* ===== IA ===== */
+/* ============================= */
+/* FONCTION IA */
+/* ============================= */
 
 async function askAI(question){
+
+try{
 
 const response = await axios.post(
 "https://openrouter.ai/api/v1/chat/completions",
@@ -29,11 +56,15 @@ role:"system",
 content:`Tu es ${BOT_NAME}, une intelligence artificielle WhatsApp.
 
 Ton créateur est ${OWNER_NAME}.
-Si quelqu'un demande qui t'a créé répond :
+
+Si quelqu'un demande :
+"Qui t'a créé ?"
+
+Tu dois répondre :
 
 "J'ai été créé par ${OWNER_NAME}. Pour avoir la même IA contactez ${OWNER_NUMBER}."
 
-Réponds intelligemment avec emojis.`
+Réponds toujours intelligemment avec des emojis.`
 },
 {
 role:"user",
@@ -50,9 +81,18 @@ Authorization:`Bearer ${API_KEY}`,
 )
 
 return response.data.choices[0].message.content
+
+}catch(e){
+
+return "⚠️ L'IA rencontre un problème."
+
 }
 
-/* ===== BOT ===== */
+}
+
+/* ============================= */
+/* BOT WHATSAPP */
+/* ============================= */
 
 async function startBot(){
 
@@ -62,15 +102,19 @@ const { state, saveCreds } = await useMultiFileAuthState("session")
 const { version } = await fetchLatestBaileysVersion()
 
 const sock = makeWASocket({
+
 version,
 auth: state,
 logger: pino({ level:"silent" }),
 browser:["OLIMAX","Chrome","3.1"]
+
 })
 
 sock.ev.on("creds.update", saveCreds)
 
-/* ===== PAIRING CODE ===== */
+/* ============================= */
+/* PAIRING CODE */
+/* ============================= */
 
 if(!sock.authState.creds.registered){
 
@@ -80,7 +124,9 @@ console.log("🔑 Code WhatsApp :", code)
 
 }
 
-/* ===== CONNEXION ===== */
+/* ============================= */
+/* CONNEXION */
+/* ============================= */
 
 sock.ev.on("connection.update", (update)=>{
 
@@ -95,7 +141,7 @@ console.log("⚠️ Connexion fermée")
 
 if(shouldReconnect){
 
-console.log("🔄 Reconnexion du bot...")
+console.log("🔄 Reconnexion...")
 
 startBot()
 
@@ -111,7 +157,9 @@ console.log("✅ OLIMAX connecté à WhatsApp")
 
 })
 
-/* ===== MESSAGES ===== */
+/* ============================= */
+/* MESSAGES */
+/* ============================= */
 
 sock.ev.on("messages.upsert", async ({ messages })=>{
 
@@ -136,7 +184,7 @@ await sock.sendMessage(chat,{ text: reply })
 }catch(e){
 
 await sock.sendMessage(chat,{
-text:"⚠️ L'IA rencontre un problème."
+text:"⚠️ Erreur lors de la réponse."
 })
 
 }
@@ -144,5 +192,19 @@ text:"⚠️ L'IA rencontre un problème."
 })
 
 }
+
+/* ============================= */
+/* KEEP ALIVE */
+/* ============================= */
+
+setInterval(()=>{
+
+console.log("🤖 OLIMAX fonctionne...")
+
+},300000)
+
+/* ============================= */
+/* START */
+/* ============================= */
 
 startBot()
