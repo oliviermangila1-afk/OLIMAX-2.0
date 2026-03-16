@@ -25,7 +25,7 @@ printQRInTerminal:false
 
 sock.ev.on("connection.update", (update)=>{
 
-const {connection, qr} = update
+const {connection, qr, lastDisconnect} = update
 
 if(qr){
 console.log("📱 Scanner ce QR avec WhatsApp")
@@ -37,20 +37,30 @@ console.log("✅ WhatsApp connecté !")
 }
 
 if(connection==="close"){
+
+const shouldReconnect =
+lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+
 console.log("⚠️ Déconnexion... reconnexion")
+
+if(shouldReconnect){
 startBot()
+}
+
 }
 
 })
 
 sock.ev.on("creds.update", saveCreds)
 
-sock.ev.on("messages.upsert", async ({messages})=>{
+sock.ev.on("messages.upsert", async (m)=>{
 
-const msg = messages[0]
+const msg = m.messages[0]
 
 if(!msg.message) return
 if(msg.key.fromMe) return
+
+const from = msg.key.remoteJid
 
 const text =
 msg.message.conversation ||
@@ -74,7 +84,7 @@ model:"openai/gpt-4o-mini",
 messages:[
 {
 role:"system",
-content:"Tu es OLIMAX un assistant intelligent style ChatGPT. Réponds clairement avec des emojis."
+content:"Tu es OLIMAX, un assistant intelligent comme ChatGPT. Réponds clairement avec des emojis."
 },
 {
 role:"user",
@@ -86,19 +96,19 @@ content:text
 
 const data = await response.json()
 
-let reply = data.choices?.[0]?.message?.content
+let reply = data?.choices?.[0]?.message?.content
 
 if(!reply){
-reply="🤖 Désolé je n'ai pas compris la question."
+reply="🤖 Désolé, je n'ai pas compris."
 }
 
-await sock.sendMessage(msg.key.remoteJid,{text:reply})
+await sock.sendMessage(from,{text:reply})
 
-}catch(err){
+}catch(error){
 
-console.log("Erreur API",err)
+console.log("Erreur API",error)
 
-await sock.sendMessage(msg.key.remoteJid,{
+await sock.sendMessage(from,{
 text:"⚠️ Erreur serveur OLIMAX."
 })
 
