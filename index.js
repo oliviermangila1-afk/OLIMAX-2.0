@@ -1,143 +1,44 @@
-import makeWASocket, {
-DisconnectReason,
+const {
+default: makeWASocket,
 useMultiFileAuthState,
-fetchLatestBaileysVersion
-} from "@whiskeysockets/baileys"
+DisconnectReason
+} = require("@whiskeysockets/baileys")
 
-import pino from "pino"
-import express from "express"
-import axios from "axios"
-import qrcode from "qrcode-terminal"
+const pino = require("pino")
+const qrcode = require("qrcode-terminal")
+const express = require("express")
+const { OpenAI } = require("openai")
 
-/* =========================
-CONFIGURATION
-========================= */
-
-const BOTNAME = "OLIMAX"
-const OWNER = "Olivier MANGILA"
-const NUMBER = "243981240435"
-
-const API_KEY = process.env.OPENROUTER_API_KEY
-
-/* =========================
-SERVEUR WEB
-========================= */
-
-const app = express()
-
-app.get("/", (req,res)=>{
-res.send("OLIMAX BOT ACTIF")
+// API OpenRouter
+const openai = new OpenAI({
+apiKey: process.env.OPENROUTER_API_KEY,
+baseURL: "https://openrouter.ai/api/v1"
 })
 
-app.listen(3000,()=>{
-console.log("🌐 Serveur actif sur 3000")
-})
-
-/* =========================
-ANTI DOUBLON
-========================= */
-
-const processedMessages = new Set()
-
-/* =========================
-IA
-========================= */
-
-async function askAI(text){
-
-try{
-
-const response = await axios.post(
-"https://openrouter.ai/api/v1/chat/completions",
-{
-model: "openai/gpt-4o-mini",
-temperature: 0.7,
-messages: [
-{
-role:"system",
-content:`Tu es ${BOTNAME}, une intelligence artificielle avancée créée par ${OWNER}.
-
-Ton style doit ressembler à ChatGPT :
-
-- réponses naturelles et humaines
-- phrases bien structurées
-- utilise des emojis quand c'est pertinent 🙂
-- explique clairement les choses
-- reste poli et conversationnel
-- répond toujours en UNE seule réponse
-
-Si quelqu'un demande qui t'a créé répond :
-"J'ai été créé par ${OWNER}. Contact : ${NUMBER}"
-
-Parle comme un assistant intelligent et amical.`
-},
-{
-role:"user",
-content:text
-}
-]
-},
-{
-headers:{
-Authorization:`Bearer ${API_KEY}`,
-"Content-Type":"application/json"
-}
-}
-)
-
-return response.data.choices[0].message.content
-
-}catch(error){
-
-console.log("Erreur IA :", error.response?.data || error.message)
-
-return "⚠️ Désolé, l'IA ne peut pas répondre pour le moment."
-
-}
-
-}
-
-/* =========================
-BOT WHATSAPP
-========================= */
+let processedMessages = new Set()
 
 async function startBot(){
 
-console.log("🚀 Démarrage OLIMAX...")
-
-const { state, saveCreds } = await useMultiFileAuthState("session")
-
-const { version } = await fetchLatestBaileysVersion()
+const { state, saveCreds } = await useMultiFileAuthState("./session")
 
 const sock = makeWASocket({
-version,
-auth: state,
-logger: pino({level:"silent"}),
-browser:["OLIMAX","Chrome","1.0"]
+logger: pino({ level: "silent" }),
+auth: state
 })
 
 sock.ev.on("creds.update", saveCreds)
 
-/* =========================
-CONNEXION
-========================= */
+sock.ev.on("connection.update", (update)=>{
 
-sock.ev.on("connection.update",(update)=>{
-
-const {connection,qr,lastDisconnect} = update
+const { connection, lastDisconnect, qr } = update
 
 if(qr){
-
-console.log("📱 Scanne le QR avec WhatsApp")
-
+console.log("📱 Scanner ce QR Code")
 qrcode.generate(qr,{small:true})
-
 }
 
 if(connection === "open"){
-
 console.log("✅ OLIMAX connecté à WhatsApp")
-
 }
 
 if(connection === "close"){
@@ -145,44 +46,27 @@ if(connection === "close"){
 const shouldReconnect =
 lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
 
-if(shouldReconnect){
-
 console.log("🔄 Reconnexion...")
-startBot()
 
+if(shouldReconnect){
+startBot()
 }
 
 }
 
 })
 
-/* =========================
-MESSAGES
-========================= */
-
-sock.ev.on("messages.upsert", async ({messages,type})=>{
-
-if(type !== "notify") return
+sock.ev.on("messages.upsert", async ({ messages })=>{
 
 const msg = messages[0]
 
 if(!msg.message) return
-
-/* ignorer messages du bot */
-
 if(msg.key.fromMe) return
 
-/* anti doublon */
+const messageId = msg.key.id
 
-const id = msg.key.id
-
-if(processedMessages.has(id)) return
-
-processedMessages.add(id)
-
-/* lecture message */
-
-const chat = msg.key.remoteJid
+if(processedMessages.has(messageId)) return
+processedMessages.add(messageId)
 
 const text =
 msg.message.conversation ||
@@ -190,16 +74,58 @@ msg.message.extendedTextMessage?.text
 
 if(!text) return
 
-console.log("📩 Message reçu :", text)
+const sender = msg.key.remoteJid
 
-/* réponse IA */
+console.log("💬 Question:", text)
 
-const reply = await askAI(text)
+try{
 
-await sock.sendMessage(chat,{ text: reply })
+const completion = await openai.chat.completions.create({
+model: "openai/gpt-4o-mini",
+messages: [
+{
+role: "system",
+content:
+"Tu es OLIMAX 🤖 une intelligence artificielle qui répond comme ChatGPT. Tes réponses sont naturelles, claires, utiles et parfois accompagnées d'emojis pour rendre la conversation agréable."
+},
+{
+role: "user",
+content: text
+}
+]
+})
+
+let reply = completion.choices[0].message.content
+
+await sock.sendMessage(sender,{ text: reply })
+
+console.log("✅ Réponse envoyée")
+
+}catch(error){
+
+console.log("❌ Erreur:",error)
+
+await sock.sendMessage(sender,{
+text:"⚠️ Désolé, une petite erreur est survenue. Peux-tu réessayer ? 🙂"
+})
+
+}
 
 })
 
 }
 
 startBot()
+
+// Serveur Web pour Railway
+const app = express()
+
+app.get("/",(req,res)=>{
+res.send("OLIMAX BOT ACTIF 🚀")
+})
+
+const PORT = process.env.PORT || 3000
+
+app.listen(PORT,()=>{
+console.log("🌍 Serveur actif sur le port "+PORT)
+})
