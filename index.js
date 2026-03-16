@@ -1,113 +1,105 @@
-const {
-default: makeWASocket,
-useMultiFileAuthState,
-DisconnectReason
-} = require("@whiskeysockets/baileys")
+import makeWASocket, { useMultiFileAuthState, DisconnectReason } from "@whiskeysockets/baileys"
+import qrcode from "qrcode-terminal"
+import fetch from "node-fetch"
+import express from "express"
 
-const pino = require("pino")
-const qrcode = require("qrcode-terminal")
-const express = require("express")
+const app = express()
+const PORT = process.env.PORT || 8080
 
-const { OpenAI } = require("openai")
-
-// API OpenRouter
-const openai = new OpenAI({
-apiKey: process.env.OPENROUTER_API_KEY,
-baseURL: "https://openrouter.ai/api/v1"
+app.get("/", (req,res)=>{
+res.send("🤖 OLIMAX BOT ACTIF")
 })
 
-let processedMessages = new Set()
+app.listen(PORT, ()=>{
+console.log("🚀 Serveur actif sur le port", PORT)
+})
 
 async function startBot(){
 
-const { state, saveCreds } = await useMultiFileAuthState("./session")
+const { state, saveCreds } = await useMultiFileAuthState("./auth")
 
 const sock = makeWASocket({
-logger: pino({ level: "silent" }),
-auth: state
+auth: state,
+printQRInTerminal:false
+})
+
+sock.ev.on("connection.update", (update)=>{
+
+const {connection, qr} = update
+
+if(qr){
+console.log("📱 Scanner ce QR avec WhatsApp")
+qrcode.generate(qr,{small:true})
+}
+
+if(connection==="open"){
+console.log("✅ WhatsApp connecté !")
+}
+
+if(connection==="close"){
+console.log("⚠️ Déconnexion... reconnexion")
+startBot()
+}
+
 })
 
 sock.ev.on("creds.update", saveCreds)
 
-sock.ev.on("connection.update", (update)=>{
-
-const { connection, lastDisconnect, qr } = update
-
-if(qr){
-console.log("📱 Scanner ce QR Code")
-qrcode.generate(qr,{small:true})
-}
-
-if(connection === "open"){
-console.log("✅ OLIMAX connecté à WhatsApp")
-}
-
-if(connection === "close"){
-
-const shouldReconnect =
-lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
-
-console.log("🔄 Reconnexion...")
-
-if(shouldReconnect){
-startBot()
-}
-
-}
-
-})
-
-sock.ev.on("messages.upsert", async ({ messages })=>{
+sock.ev.on("messages.upsert", async ({messages})=>{
 
 const msg = messages[0]
 
 if(!msg.message) return
 if(msg.key.fromMe) return
 
-const messageId = msg.key.id
-
-if(processedMessages.has(messageId)) return
-processedMessages.add(messageId)
-
 const text =
 msg.message.conversation ||
-msg.message.extendedTextMessage?.text
+msg.message.extendedTextMessage?.text ||
+""
 
 if(!text) return
 
-const sender = msg.key.remoteJid
-
-console.log("💬 Question:", text)
+console.log("📩 Message:", text)
 
 try{
 
-const completion = await openai.chat.completions.create({
-model: "openai/gpt-4o-mini",
-messages: [
+const response = await fetch("https://openrouter.ai/api/v1/chat/completions",{
+method:"POST",
+headers:{
+"Authorization":`Bearer ${process.env.OPENROUTER_API_KEY}`,
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+model:"openai/gpt-4o-mini",
+messages:[
 {
-role: "system",
-content:
-"Tu es OLIMAX 🤖 une intelligence artificielle qui répond comme ChatGPT avec des réponses naturelles, claires et parfois des emojis."
+role:"system",
+content:"Tu es OLIMAX un assistant intelligent style ChatGPT. Réponds clairement avec des emojis."
 },
 {
-role: "user",
-content: text
+role:"user",
+content:text
 }
 ]
 })
+})
 
-const reply = completion.choices[0].message.content
+const data = await response.json()
 
-await sock.sendMessage(sender,{ text: reply })
+let reply = data.choices?.[0]?.message?.content
 
-console.log("✅ Réponse envoyée")
+if(!reply){
+reply="🤖 Désolé je n'ai pas compris la question."
+}
 
-}catch(error){
+await sock.sendMessage(msg.key.remoteJid,{text:reply})
 
-console.log("❌ Erreur IA:", error)
+}catch(err){
 
-await sock.sendMessage(sender,{
-text:"⚠️ Désolé, une erreur est survenue. Réessaie dans quelques instants 🙂"
+console.log("Erreur API",err)
+
+await sock.sendMessage(msg.key.remoteJid,{
+text:"⚠️ Erreur serveur OLIMAX."
 })
 
 }
@@ -117,16 +109,3 @@ text:"⚠️ Désolé, une erreur est survenue. Réessaie dans quelques instants
 }
 
 startBot()
-
-// serveur web pour Railway
-const app = express()
-
-app.get("/",(req,res)=>{
-res.send("OLIMAX BOT ACTIF 🤖")
-})
-
-const PORT = process.env.PORT || 3000
-
-app.listen(PORT,()=>{
-console.log("🌍 Serveur actif sur le port " + PORT)
-})
