@@ -1,74 +1,79 @@
 import makeWASocket, {
-fetchLatestBaileysVersion,
+DisconnectReason,
 useMultiFileAuthState,
-DisconnectReason
+fetchLatestBaileysVersion
 } from "@whiskeysockets/baileys"
 
 import pino from "pino"
-import axios from "axios"
 import express from "express"
+import axios from "axios"
+import qrcode from "qrcode-terminal"
 
-/* ============================= */
-/* INFOS CREATEUR */
-/* ============================= */
+/* =========================
+CONFIGURATION
+========================= */
 
-const BOT_NAME = "OLIMAX-3.1"
-const OWNER_NAME = "OLIVIER MANGILA"
-const OWNER_NUMBER = "0981240435"
+const BOTNAME = "OLIMAX"
+const OWNER = "Olivier MANGILA"
+const NUMBER = "243981240435"
 
-/* ============================= */
-/* SERVEUR POUR RAILWAY */
-/* ============================= */
+const API_KEY = process.env.OPENROUTER_API_KEY
+
+/* =========================
+SERVEUR WEB
+========================= */
 
 const app = express()
 
 app.get("/", (req,res)=>{
-res.send("OLIMAX BOT ONLINE")
+res.send("OLIMAX BOT ACTIF")
 })
 
-const PORT = process.env.PORT || 3000
-
-app.listen(PORT, ()=>{
-console.log("🌐 Serveur actif sur port", PORT)
+app.listen(3000,()=>{
+console.log("🌐 Serveur actif sur 3000")
 })
 
-/* ============================= */
-/* API KEY IA */
-/* ============================= */
+/* =========================
+ANTI DOUBLON
+========================= */
 
-const API_KEY = process.env.OPENROUTER_API_KEY
+const processedMessages = new Set()
 
-/* ============================= */
-/* FONCTION IA */
-/* ============================= */
+/* =========================
+IA
+========================= */
 
-async function askAI(question){
+async function askAI(text){
 
 try{
 
 const response = await axios.post(
 "https://openrouter.ai/api/v1/chat/completions",
 {
-model:"openai/gpt-4o-mini",
-messages:[
+model: "openai/gpt-4o-mini",
+temperature: 0.7,
+messages: [
 {
 role:"system",
-content:`Tu es ${BOT_NAME}, une intelligence artificielle WhatsApp.
+content:`Tu es ${BOTNAME}, une intelligence artificielle avancée créée par ${OWNER}.
 
-Ton créateur est ${OWNER_NAME}.
+Ton style doit ressembler à ChatGPT :
 
-Si quelqu'un demande :
-"Qui t'a créé ?"
+- réponses naturelles et humaines
+- phrases bien structurées
+- utilise des emojis quand c'est pertinent 🙂
+- explique clairement les choses
+- reste poli et conversationnel
+- répond toujours en UNE seule réponse
 
-Tu dois répondre :
+Si quelqu'un demande qui t'a créé répond :
+"J'ai été créé par ${OWNER}. Contact : ${NUMBER}"
 
-"J'ai été créé par ${OWNER_NAME}. Pour avoir la même IA contactez ${OWNER_NUMBER}."
-
-Réponds toujours intelligemment avec des emojis.`
+Parle comme un assistant intelligent et amical.`
 },
 {
 role:"user",
-content:question
+content:text
 }
 ]
 },
@@ -82,70 +87,50 @@ Authorization:`Bearer ${API_KEY}`,
 
 return response.data.choices[0].message.content
 
-}catch(e){
+}catch(error){
 
-return "⚠️ L'IA rencontre un problème."
+console.log("Erreur IA :", error.response?.data || error.message)
+
+return "⚠️ Désolé, l'IA ne peut pas répondre pour le moment."
 
 }
 
 }
 
-/* ============================= */
-/* BOT WHATSAPP */
-/* ============================= */
+/* =========================
+BOT WHATSAPP
+========================= */
 
 async function startBot(){
 
-console.log("🚀 Démarrage OLIMAX")
+console.log("🚀 Démarrage OLIMAX...")
 
 const { state, saveCreds } = await useMultiFileAuthState("session")
+
 const { version } = await fetchLatestBaileysVersion()
 
 const sock = makeWASocket({
-
 version,
 auth: state,
-logger: pino({ level:"silent" }),
-browser:["OLIMAX","Chrome","3.1"]
-
+logger: pino({level:"silent"}),
+browser:["OLIMAX","Chrome","1.0"]
 })
 
 sock.ev.on("creds.update", saveCreds)
 
-/* ============================= */
-/* PAIRING CODE */
-/* ============================= */
+/* =========================
+CONNEXION
+========================= */
 
-if(!sock.authState.creds.registered){
+sock.ev.on("connection.update",(update)=>{
 
-const code = await sock.requestPairingCode("243981240435")
+const {connection,qr,lastDisconnect} = update
 
-console.log("🔑 Code WhatsApp :", code)
+if(qr){
 
-}
+console.log("📱 Scanne le QR avec WhatsApp")
 
-/* ============================= */
-/* CONNEXION */
-/* ============================= */
-
-sock.ev.on("connection.update", (update)=>{
-
-const { connection, lastDisconnect } = update
-
-if(connection === "close"){
-
-const shouldReconnect =
-lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
-
-console.log("⚠️ Connexion fermée")
-
-if(shouldReconnect){
-
-console.log("🔄 Reconnexion...")
-
-startBot()
-
-}
+qrcode.generate(qr,{small:true})
 
 }
 
@@ -155,17 +140,47 @@ console.log("✅ OLIMAX connecté à WhatsApp")
 
 }
 
+if(connection === "close"){
+
+const shouldReconnect =
+lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+
+if(shouldReconnect){
+
+console.log("🔄 Reconnexion...")
+startBot()
+
+}
+
+}
+
 })
 
-/* ============================= */
-/* MESSAGES */
-/* ============================= */
+/* =========================
+MESSAGES
+========================= */
 
-sock.ev.on("messages.upsert", async ({ messages })=>{
+sock.ev.on("messages.upsert", async ({messages,type})=>{
+
+if(type !== "notify") return
 
 const msg = messages[0]
 
 if(!msg.message) return
+
+/* ignorer messages du bot */
+
+if(msg.key.fromMe) return
+
+/* anti doublon */
+
+const id = msg.key.id
+
+if(processedMessages.has(id)) return
+
+processedMessages.add(id)
+
+/* lecture message */
 
 const chat = msg.key.remoteJid
 
@@ -175,36 +190,16 @@ msg.message.extendedTextMessage?.text
 
 if(!text) return
 
-try{
+console.log("📩 Message reçu :", text)
+
+/* réponse IA */
 
 const reply = await askAI(text)
 
 await sock.sendMessage(chat,{ text: reply })
 
-}catch(e){
-
-await sock.sendMessage(chat,{
-text:"⚠️ Erreur lors de la réponse."
 })
 
 }
-
-})
-
-}
-
-/* ============================= */
-/* KEEP ALIVE */
-/* ============================= */
-
-setInterval(()=>{
-
-console.log("🤖 OLIMAX fonctionne...")
-
-},300000)
-
-/* ============================= */
-/* START */
-/* ============================= */
 
 startBot()

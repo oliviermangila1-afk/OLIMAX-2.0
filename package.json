@@ -1,24 +1,16 @@
 {
-  "name": "olimax-3.1",
-  "version": "1.0.0",
-  "description": "OLIMAX WhatsApp AI Bot created by OLIVIER MANGILA",
-  "main": "index.js",
-  "type": "module",
-  "scripts": {
-    "start": "node index.js"
-  },
-  "keywords": [
-    "whatsapp",
-    "bot",
-    "ai",
-    "olimax"
-  ],
-  "author": "OLIVIER MANGILA",
-  "license": "MIT",
-  "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.5",
-    "axios": "^1.7.7",
-    "express": "^5.2.1",
-    "pino": "^8.19.0"
-  }
+"name":"olimax",
+"version":"1.0.0",
+"type":"module",
+"main":"index.js",
+"scripts":{
+"start":"node index.js"
+},
+"dependencies":{
+"@whiskeysockets/baileys":"^6.7.0",
+"axios":"^1.6.7",
+"express":"^4.19.2",
+"pino":"^8.17.0",
+"qrcode-terminal":"^0.12.0"
+}
 }
