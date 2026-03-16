@@ -1,80 +1,35 @@
-import makeWASocket, { useMultiFileAuthState, DisconnectReason } from "@whiskeysockets/baileys"
+import makeWASocket, {
+useMultiFileAuthState,
+fetchLatestBaileysVersion
+} from "@whiskeysockets/baileys"
+
 import express from "express"
-import QRCode from "qrcode"
 import fetch from "node-fetch"
+
+const OWNER = "Olivier MANGILA"
+const NUMBER = "243981240435"
+const BOTNAME = "OLIMAX"
+
+/* ===================== */
+/* SERVEUR */
+/* ===================== */
 
 const app = express()
 const PORT = process.env.PORT || 8080
 
 app.get("/", (req,res)=>{
-res.send("🤖 OLIMAX BOT ACTIF")
+res.send("OLIMAX BOT ACTIF")
 })
 
 app.listen(PORT, ()=>{
-console.log("🚀 Serveur actif sur le port", PORT)
+console.log("Serveur actif sur", PORT)
 })
 
-async function startBot(){
+/* ===================== */
+/* IA */
+/* ===================== */
 
-const { state, saveCreds } = await useMultiFileAuthState("./auth")
-
-const sock = makeWASocket({
-auth: state
-})
-
-sock.ev.on("connection.update", async (update)=>{
-
-const { connection, qr, lastDisconnect } = update
-
-if(qr){
-
-console.log("📱 QR généré")
-
-const qrImage = await QRCode.toDataURL(qr)
-
-console.log("➡️ Copie ce lien dans ton navigateur pour voir le QR :")
-console.log(qrImage)
-
-}
-
-if(connection === "open"){
-console.log("✅ WhatsApp connecté !")
-}
-
-if(connection === "close"){
-
-const shouldReconnect =
-lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
-
-console.log("⚠️ Déconnexion...")
-
-if(shouldReconnect){
-startBot()
-}
-
-}
-
-})
-
-sock.ev.on("creds.update", saveCreds)
-
-sock.ev.on("messages.upsert", async (m)=>{
-
-const msg = m.messages[0]
-
-if(!msg.message) return
-if(msg.key.fromMe) return
-
-const from = msg.key.remoteJid
-
-const text =
-msg.message.conversation ||
-msg.message.extendedTextMessage?.text ||
-""
-
-if(!text) return
-
-console.log("📩 Message reçu :", text)
+async function askAI(message){
 
 try{
 
@@ -89,11 +44,11 @@ model:"openai/gpt-4o-mini",
 messages:[
 {
 role:"system",
-content:"Tu es OLIMAX, un assistant intelligent comme ChatGPT. Réponds clairement avec des emojis."
+content:`Tu es ${BOTNAME}. Ton créateur est ${OWNER}. Si quelqu'un demande qui t'a créé répond : J'ai été créé par ${OWNER}. Pour avoir la même IA contactez ${NUMBER}. Réponds comme ChatGPT avec des emojis.`
 },
 {
 role:"user",
-content:text
+content:message
 }
 ]
 })
@@ -101,23 +56,96 @@ content:text
 
 const data = await response.json()
 
-let reply = data?.choices?.[0]?.message?.content
+return data.choices[0].message.content
 
-if(!reply){
-reply="🤖 Désolé, je n'ai pas compris."
+}catch{
+
+return "⚠️ L'IA OLIMAX ne répond pas pour le moment."
+
 }
 
-await sock.sendMessage(from,{ text: reply })
+}
 
-}catch(err){
+/* ===================== */
+/* BOT WHATSAPP */
+/* ===================== */
 
-console.log("Erreur API :", err)
+async function startBot(){
 
-await sock.sendMessage(from,{
-text:"⚠️ Erreur serveur OLIMAX."
+console.log("Démarrage OLIMAX V4...")
+
+const { state, saveCreds } = await useMultiFileAuthState("./session")
+
+const { version } = await fetchLatestBaileysVersion()
+
+const sock = makeWASocket({
+version,
+auth: state,
+printQRInTerminal:false
 })
 
+sock.ev.on("creds.update", saveCreds)
+
+/* ===================== */
+/* PAIRING CODE */
+/* ===================== */
+
+if(!sock.authState.creds.registered){
+
+const phoneNumber = "243981240435"
+
+const code = await sock.requestPairingCode(phoneNumber)
+
+console.log("===================================")
+console.log("CODE WHATSAPP :", code)
+console.log("===================================")
+
 }
+
+/* ===================== */
+/* CONNEXION */
+/* ===================== */
+
+sock.ev.on("connection.update", (update)=>{
+
+const { connection } = update
+
+if(connection === "open"){
+console.log("OLIMAX connecté à WhatsApp")
+}
+
+if(connection === "close"){
+console.log("Reconnexion...")
+startBot()
+}
+
+})
+
+/* ===================== */
+/* MESSAGES */
+/* ===================== */
+
+sock.ev.on("messages.upsert", async ({ messages })=>{
+
+const msg = messages[0]
+
+if(!msg.message) return
+if(msg.key.fromMe) return
+
+const chat = msg.key.remoteJid
+
+const text =
+msg.message.conversation ||
+msg.message.extendedTextMessage?.text ||
+""
+
+if(!text) return
+
+console.log("Message :", text)
+
+const reply = await askAI(text)
+
+await sock.sendMessage(chat,{ text: reply })
 
 })
 
