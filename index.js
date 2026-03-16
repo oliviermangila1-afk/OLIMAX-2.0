@@ -7,6 +7,7 @@ DisconnectReason
 const pino = require("pino")
 const qrcode = require("qrcode-terminal")
 const express = require("express")
+
 const { OpenAI } = require("openai")
 
 // API OpenRouter
@@ -86,7 +87,7 @@ messages: [
 {
 role: "system",
 content:
-"Tu es OLIMAX 🤖 une intelligence artificielle qui répond comme ChatGPT. Tes réponses sont naturelles, claires, utiles et parfois accompagnées d'emojis pour rendre la conversation agréable."
+"Tu es OLIMAX 🤖 une intelligence artificielle qui répond comme ChatGPT avec des réponses naturelles, claires et parfois des emojis."
 },
 {
 role: "user",
@@ -95,7 +96,7 @@ content: text
 ]
 })
 
-let reply = completion.choices[0].message.content
+const reply = completion.choices[0].message.content
 
 await sock.sendMessage(sender,{ text: reply })
 
@@ -103,10 +104,10 @@ console.log("✅ Réponse envoyée")
 
 }catch(error){
 
-console.log("❌ Erreur:",error)
+console.log("❌ Erreur IA:", error)
 
 await sock.sendMessage(sender,{
-text:"⚠️ Désolé, une petite erreur est survenue. Peux-tu réessayer ? 🙂"
+text:"⚠️ Désolé, une erreur est survenue. Réessaie dans quelques instants 🙂"
 })
 
 }
@@ -117,15 +118,15 @@ text:"⚠️ Désolé, une petite erreur est survenue. Peux-tu réessayer ? 🙂
 
 startBot()
 
-// Serveur Web pour Railway
+// serveur web pour Railway
 const app = express()
 
 app.get("/",(req,res)=>{
-res.send("OLIMAX BOT ACTIF 🚀")
+res.send("OLIMAX BOT ACTIF 🤖")
 })
 
 const PORT = process.env.PORT || 3000
 
 app.listen(PORT,()=>{
-console.log("🌍 Serveur actif sur le port "+PORT)
+console.log("🌍 Serveur actif sur le port " + PORT)
 })
