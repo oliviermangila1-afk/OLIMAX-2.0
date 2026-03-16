@@ -1,7 +1,7 @@
 import makeWASocket, { useMultiFileAuthState, DisconnectReason } from "@whiskeysockets/baileys"
-import qrcode from "qrcode-terminal"
-import fetch from "node-fetch"
 import express from "express"
+import QRCode from "qrcode"
+import fetch from "node-fetch"
 
 const app = express()
 const PORT = process.env.PORT || 8080
@@ -19,29 +19,34 @@ async function startBot(){
 const { state, saveCreds } = await useMultiFileAuthState("./auth")
 
 const sock = makeWASocket({
-auth: state,
-printQRInTerminal:false
+auth: state
 })
 
-sock.ev.on("connection.update", (update)=>{
+sock.ev.on("connection.update", async (update)=>{
 
-const {connection, qr, lastDisconnect} = update
+const { connection, qr, lastDisconnect } = update
 
 if(qr){
-console.log("📱 Scanner ce QR avec WhatsApp")
-qrcode.generate(qr,{small:true})
+
+console.log("📱 QR généré")
+
+const qrImage = await QRCode.toDataURL(qr)
+
+console.log("➡️ Copie ce lien dans ton navigateur pour voir le QR :")
+console.log(qrImage)
+
 }
 
-if(connection==="open"){
+if(connection === "open"){
 console.log("✅ WhatsApp connecté !")
 }
 
-if(connection==="close"){
+if(connection === "close"){
 
 const shouldReconnect =
 lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
 
-console.log("⚠️ Déconnexion... reconnexion")
+console.log("⚠️ Déconnexion...")
 
 if(shouldReconnect){
 startBot()
@@ -69,7 +74,7 @@ msg.message.extendedTextMessage?.text ||
 
 if(!text) return
 
-console.log("📩 Message:", text)
+console.log("📩 Message reçu :", text)
 
 try{
 
@@ -102,11 +107,11 @@ if(!reply){
 reply="🤖 Désolé, je n'ai pas compris."
 }
 
-await sock.sendMessage(from,{text:reply})
+await sock.sendMessage(from,{ text: reply })
 
-}catch(error){
+}catch(err){
 
-console.log("Erreur API",error)
+console.log("Erreur API :", err)
 
 await sock.sendMessage(from,{
 text:"⚠️ Erreur serveur OLIMAX."
