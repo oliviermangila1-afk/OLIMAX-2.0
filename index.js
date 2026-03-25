@@ -1,110 +1,116 @@
 import makeWASocket, { useMultiFileAuthState, DisconnectReason } from "@whiskeysockets/baileys"
 import express from "express"
-import fetch from "node-fetch"
 import QRCode from "qrcode"
+import P from "pino"
 
 const app = express()
 const PORT = process.env.PORT || 8080
 
-let qrCode = ""
+let qrCodeData = ""
 
-// 🌐 PAGE WEB QR
+// PAGE WEB QR
 app.get("/", async (req, res) => {
-    if (!qrCode) {
-        return res.send("⌛ Génération du QR code... actualise la page")
+    if (!qrCodeData) {
+        return res.send("⏳ QR non disponible... attends")
     }
 
-    const qrImage = await QRCode.toDataURL(qrCode)
+    const qrImage = await QRCode.toDataURL(qrCodeData)
 
     res.send(`
     <html>
     <head>
         <title>OLIMAX BOT</title>
     </head>
-    <body style="text-align:center;font-family:sans-serif;">
+    <body style="text-align:center; font-family:sans-serif;">
         <h1>🤖 OLIMAX BOT</h1>
-        <p>Créé par OLIVIER MANGILA</p>
+        <p>Créé par <b>OLIVIER MANGILA</b></p>
         <p>📞 +243981240435</p>
-        <p>Scanne avec WhatsApp 👇</p>
         <img src="${qrImage}" />
+        <p>Scanne avec WhatsApp</p>
     </body>
     </html>
     `)
 })
 
 app.listen(PORT, () => {
-    console.log("🌍 Serveur actif sur le port " + PORT)
+    console.log("🌐 Serveur actif sur port", PORT)
 })
 
-// 🤖 BOT
 async function startBot() {
-
-    const { state, saveCreds } = await useMultiFileAuthState("./session")
+    const { state, saveCreds } = await useMultiFileAuthState("session")
 
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: false
+        printQRInTerminal: false,
+        logger: P({ level: "silent" })
+    })
+
+    sock.ev.on("connection.update", async (update) => {
+        const { connection, lastDisconnect, qr } = update
+
+        if (qr) {
+            qrCodeData = qr
+            console.log("✅ QR généré (ouvre ton lien Railway)")
+        }
+
+        if (connection === "close") {
+            const reason = lastDisconnect?.error?.output?.statusCode
+
+            if (reason !== DisconnectReason.loggedOut) {
+                console.log("🔄 Reconnexion...")
+                startBot()
+            } else {
+                console.log("❌ Session expirée, supprime /session")
+            }
+        } else if (connection === "open") {
+            console.log("✅ BOT CONNECTÉ")
+        }
     })
 
     sock.ev.on("creds.update", saveCreds)
 
-    sock.ev.on("connection.update", (update) => {
-        const { connection, qr, lastDisconnect } = update
+    sock.ev.on("messages.upsert", async ({ messages }) => {
+        const msg = messages[0]
 
-        if (qr) {
-            qrCode = qr
-            console.log("📲 QR généré")
-        }
+        if (!msg.message || msg.key.fromMe) return
 
-        if (connection === "open") {
-            console.log("✅ BOT CONNECTÉ")
-            qrCode = ""
-        }
-
-        if (connection === "close") {
-            const shouldReconnect =
-                lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
-
-            console.log("🔄 Reconnexion...")
-
-            if (shouldReconnect) {
-                startBot()
-            }
-        }
-    })
-
-    // 💬 MESSAGES
-    sock.ev.on("messages.upsert", async (m) => {
-        const msg = m.messages[0]
-        if (!msg.message) return
-
-        const from = msg.key.remoteJid
-
-        const text =
-            msg.message.conversation ||
-            msg.message.extendedTextMessage?.text
+        const text = msg.message.conversation || msg.message.extendedTextMessage?.text
 
         if (!text) return
 
-        console.log("💬 Message:", text)
+        if (text.toLowerCase() === "menu") {
+            await sock.sendMessage(msg.key.remoteJid, {
+                text: `
+🤖 OLIMAX BOT
 
-        let reply = ""
+👤 Créateur: OLIVIER MANGILA
+📞 Contact: +243981240435
 
-        // 🔥 LOGIQUE INTELLIGENTE
-        if (text.toLowerCase().includes("bonjour")) {
-            reply = "👋 Salut ! Je suis OLIMAX 🤖\nComment puis-je t'aider ?"
-        }
-        else if (text.toLowerCase().includes("qui t'a créé")) {
-            reply = "👤 J'ai été créé par *OLIVIER MANGILA*\n📞 Contact : +243981240435"
-        }
-        else if (text.toLowerCase().includes("numéro")) {
-            reply = "📞 Mon créateur : +243981240435"
-        }
-        else {
-            reply = `🤖 *OLIMAX PRO*\n\n👤 Créé par : OLIVIER MANGILA\n📞 +243981240435\n\n✨ Tu as dit : "${text}"\n\n💡 Je suis prêt à discuter avec toi 🚀`
+Commandes:
+- menu
+- bonjour
+- info
+                `
+            })
         }
 
-        await sock.sendMessage(from, { text: reply })
+        if (text.toLowerCase() === "bonjour") {
+            await sock.sendMessage(msg.key.remoteJid, {
+                text: "👋 Bonjour ! Bienvenue sur OLIMAX BOT"
+            })
+        }
+
+        if (text.toLowerCase() === "info") {
+            await sock.sendMessage(msg.key.remoteJid, {
+                text: `
+🤖 OLIMAX BOT v4
+
+Créé par: OLIVIER MANGILA
+WhatsApp: +243981240435
+Statut: Actif 24h/24 🚀
+                `
+            })
+        }
     })
 }
 
