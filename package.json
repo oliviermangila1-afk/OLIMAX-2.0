@@ -1,13 +1,13 @@
 {
-  "name": "olimax-bot",
-  "version": "2.0.0",
-  "description": "Bot WhatsApp OLIMAX",
+  "name": "olimax-pro",
+  "version": "4.0.0",
+  "description": "OLIMAX PRO WhatsApp Bot",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "start": "node index.js"
   },
-  "author": "Oliviera",
+  "author": "Oliviera MANGILA",
   "license": "MIT",
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.0",
