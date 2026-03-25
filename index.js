@@ -1,4 +1,4 @@
-import makeWASocket, { useMultiFileAuthState } from "@whiskeysockets/baileys"
+import makeWASocket, { useMultiFileAuthState, DisconnectReason } from "@whiskeysockets/baileys"
 import express from "express"
 import QRCode from "qrcode"
 import P from "pino"
@@ -10,12 +10,12 @@ let qrCodeData = null
 let isConnected = false
 
 app.get("/", async (req, res) => {
-    if (!qrCodeData && !isConnected) {
-        return res.send("⏳ Génération du QR... recharge dans 5 sec")
+    if (isConnected) {
+        return res.send("✅ OLIMAX BOT CONNECTÉ 24/24")
     }
 
-    if (isConnected) {
-        return res.send("✅ BOT CONNECTÉ - OLIMAX ACTIF 24H/24")
+    if (!qrCodeData) {
+        return res.send("⏳ Génération du QR... recharge la page")
     }
 
     const qrImage = await QRCode.toDataURL(qrCodeData)
@@ -47,11 +47,11 @@ async function startBot() {
     })
 
     sock.ev.on("connection.update", async (update) => {
-        const { connection, qr } = update
+        const { connection, qr, lastDisconnect } = update
 
         if (qr) {
             qrCodeData = qr
-            console.log("🔥 QR DISPONIBLE SUR LE SITE")
+            console.log("🔥 QR mis à jour (ouvre ton site Railway)")
         }
 
         if (connection === "open") {
@@ -61,7 +61,20 @@ async function startBot() {
         }
 
         if (connection === "close") {
-            console.log("❌ Déconnecté - PAS de reconnexion auto")
+            isConnected = false
+
+            const reason = lastDisconnect?.error?.output?.statusCode
+
+            console.log("❌ Déconnecté, raison :", reason)
+
+            // 🔥 RECONNEXION AUTO (IMPORTANT)
+            if (reason !== DisconnectReason.loggedOut) {
+                console.log("🔄 Reconnexion automatique...")
+                startBot()
+            } else {
+                console.log("⚠️ Session supprimée, nouveau QR requis")
+                qrCodeData = null
+            }
         }
     })
 
