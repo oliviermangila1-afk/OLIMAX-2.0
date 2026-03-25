@@ -1,154 +1,215 @@
 import makeWASocket, {
-useMultiFileAuthState,
-fetchLatestBaileysVersion
+    useMultiFileAuthState,
+    DisconnectReason,
+    downloadContentFromMessage
 } from "@whiskeysockets/baileys"
 
 import express from "express"
 import fetch from "node-fetch"
-
-const OWNER = "Olivier MANGILA"
-const NUMBER = "243981240435"
-const BOTNAME = "OLIMAX"
-
-/* ===================== */
-/* SERVEUR */
-/* ===================== */
+import QRCode from "qrcode"
+import { Sticker } from "wa-sticker-formatter"
 
 const app = express()
 const PORT = process.env.PORT || 8080
 
-app.get("/", (req,res)=>{
-res.send("OLIMAX BOT ACTIF")
+let qrCodeImage = ""
+
+// PAGE WEB POUR QR
+app.get("/", (req, res) => {
+    if (qrCodeImage) {
+        res.send(`<h2>Scanner le QR WhatsApp</h2><img src="${qrCodeImage}" />`)
+    } else {
+        res.send("🤖 OLIMAX BOT ACTIF")
+    }
 })
 
-app.listen(PORT, ()=>{
-console.log("Serveur actif sur", PORT)
+app.listen(PORT, () => {
+    console.log("🚀 Serveur actif sur le port", PORT)
 })
 
-/* ===================== */
-/* IA */
-/* ===================== */
+async function startBot() {
 
-async function askAI(message){
+    const { state, saveCreds } = await useMultiFileAuthState("./auth")
 
-try{
+    const sock = makeWASocket({
+        auth: state,
+        printQRInTerminal: false
+    })
 
-const response = await fetch("https://openrouter.ai/api/v1/chat/completions",{
-method:"POST",
-headers:{
-"Authorization":`Bearer ${process.env.OPENROUTER_API_KEY}`,
-"Content-Type":"application/json"
-},
-body:JSON.stringify({
-model:"openai/gpt-4o-mini",
-messages:[
-{
-role:"system",
-content:`Tu es ${BOTNAME}. Ton créateur est ${OWNER}. Si quelqu'un demande qui t'a créé répond : J'ai été créé par ${OWNER}. Pour avoir la même IA contactez ${NUMBER}. Réponds comme ChatGPT avec des emojis.`
-},
-{
-role:"user",
-content:message
-}
-]
-})
-})
+    sock.ev.on("connection.update", async (update) => {
 
-const data = await response.json()
+        const { connection, qr, lastDisconnect } = update
 
-return data.choices[0].message.content
+        if (qr) {
+            console.log("📱 QR généré")
+            qrCodeImage = await QRCode.toDataURL(qr)
+        }
 
-}catch{
+        if (connection === "open") {
+            console.log("✅ WhatsApp connecté")
+            qrCodeImage = ""
+        }
 
-return "⚠️ L'IA OLIMAX ne répond pas pour le moment."
+        if (connection === "close") {
 
-}
+            const shouldReconnect =
+                lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
 
-}
+            console.log("⚠️ Déconnexion...")
 
-/* ===================== */
-/* BOT WHATSAPP */
-/* ===================== */
+            if (shouldReconnect) {
+                startBot()
+            }
+        }
+    })
 
-async function startBot(){
+    sock.ev.on("creds.update", saveCreds)
 
-console.log("Démarrage OLIMAX V4...")
+    sock.ev.on("messages.upsert", async (m) => {
 
-const { state, saveCreds } = await useMultiFileAuthState("./session")
+        const msg = m.messages[0]
 
-const { version } = await fetchLatestBaileysVersion()
+        if (!msg.message) return
+        if (msg.key.fromMe) return
 
-const sock = makeWASocket({
-version,
-auth: state,
-printQRInTerminal:false
-})
+        const from = msg.key.remoteJid
 
-sock.ev.on("creds.update", saveCreds)
+        const text =
+            msg.message.conversation ||
+            msg.message.extendedTextMessage?.text ||
+            ""
 
-/* ===================== */
-/* PAIRING CODE */
-/* ===================== */
+        console.log("📩 Message:", text)
 
-if(!sock.authState.creds.registered){
+        // =========================
+        // 🎭 STICKER COMMAND
+        // =========================
+        if (text === "sticker") {
+            const sticker = new Sticker(
+                "https://i.imgur.com/6w5hQ8T.png",
+                {
+                    pack: "OLIMAX",
+                    author: "Bot",
+                    type: "full"
+                }
+            )
 
-const phoneNumber = "243981240435"
+            const buffer = await sticker.toBuffer()
 
-const code = await sock.requestPairingCode(phoneNumber)
+            await sock.sendMessage(from, { sticker: buffer })
+            return
+        }
 
-console.log("===================================")
-console.log("CODE WHATSAPP :", code)
-console.log("===================================")
+        // =========================
+        // 🖼️ IMAGE ANALYSIS
+        // =========================
+        if (msg.message.imageMessage) {
 
-}
+            const stream = await downloadContentFromMessage(
+                msg.message.imageMessage,
+                "image"
+            )
 
-/* ===================== */
-/* CONNEXION */
-/* ===================== */
+            let buffer = Buffer.from([])
 
-sock.ev.on("connection.update", (update)=>{
+            for await (const chunk of stream) {
+                buffer = Buffer.concat([buffer, chunk])
+            }
 
-const { connection } = update
+            const base64Image = buffer.toString("base64")
 
-if(connection === "open"){
-console.log("OLIMAX connecté à WhatsApp")
-}
+            try {
 
-if(connection === "close"){
-console.log("Reconnexion...")
-startBot()
-}
+                const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        model: "openai/gpt-4o-mini",
+                        messages: [
+                            {
+                                role: "user",
+                                content: [
+                                    { type: "text", text: "Décris cette image" },
+                                    {
+                                        type: "image_url",
+                                        image_url: {
+                                            url: `data:image/jpeg;base64,${base64Image}`
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    })
+                })
 
-})
+                const data = await response.json()
 
-/* ===================== */
-/* MESSAGES */
-/* ===================== */
+                const reply =
+                    data?.choices?.[0]?.message?.content ||
+                    "🤖 Image non comprise."
 
-sock.ev.on("messages.upsert", async ({ messages })=>{
+                await sock.sendMessage(from, { text: reply })
 
-const msg = messages[0]
+            } catch (err) {
+                console.log(err)
+                await sock.sendMessage(from, { text: "⚠️ Erreur image." })
+            }
 
-if(!msg.message) return
-if(msg.key.fromMe) return
+            return
+        }
 
-const chat = msg.key.remoteJid
+        // =========================
+        // 🤖 IA TEXTE
+        // =========================
+        if (text) {
 
-const text =
-msg.message.conversation ||
-msg.message.extendedTextMessage?.text ||
-""
+            try {
 
-if(!text) return
+                const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        model: "openai/gpt-4o-mini",
+                        messages: [
+                            {
+                                role: "system",
+                                content: "Tu es OLIMAX, un assistant intelligent comme ChatGPT. Réponds clairement avec des emojis."
+                            },
+                            {
+                                role: "user",
+                                content: text
+                            }
+                        ]
+                    })
+                })
 
-console.log("Message :", text)
+                const data = await response.json()
 
-const reply = await askAI(text)
+                let reply = data?.choices?.[0]?.message?.content
 
-await sock.sendMessage(chat,{ text: reply })
+                if (!reply) {
+                    reply = "🤖 Désolé, je n'ai pas compris."
+                }
 
-})
+                await sock.sendMessage(from, { text: reply })
 
+            } catch (error) {
+
+                console.log("Erreur API", error)
+
+                await sock.sendMessage(from, {
+                    text: "⚠️ Erreur serveur OLIMAX."
+                })
+            }
+        }
+
+    })
 }
 
 startBot()
