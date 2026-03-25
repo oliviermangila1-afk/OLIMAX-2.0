@@ -1,4 +1,4 @@
-import makeWASocket, { useMultiFileAuthState, DisconnectReason } from "@whiskeysockets/baileys"
+import makeWASocket, { useMultiFileAuthState } from "@whiskeysockets/baileys"
 import express from "express"
 import QRCode from "qrcode"
 import P from "pino"
@@ -6,24 +6,25 @@ import P from "pino"
 const app = express()
 const PORT = process.env.PORT || 8080
 
-let qrCodeData = ""
+let qrCodeData = null
+let isConnected = false
 
-// PAGE WEB QR
 app.get("/", async (req, res) => {
-    if (!qrCodeData) {
-        return res.send("⏳ QR non disponible... attends")
+    if (!qrCodeData && !isConnected) {
+        return res.send("⏳ Génération du QR... recharge dans 5 sec")
+    }
+
+    if (isConnected) {
+        return res.send("✅ BOT CONNECTÉ - OLIMAX ACTIF 24H/24")
     }
 
     const qrImage = await QRCode.toDataURL(qrCodeData)
 
     res.send(`
     <html>
-    <head>
-        <title>OLIMAX BOT</title>
-    </head>
-    <body style="text-align:center; font-family:sans-serif;">
+    <body style="text-align:center;font-family:sans-serif;">
         <h1>🤖 OLIMAX BOT</h1>
-        <p>Créé par <b>OLIVIER MANGILA</b></p>
+        <p>Créé par OLIVIER MANGILA</p>
         <p>📞 +243981240435</p>
         <img src="${qrImage}" />
         <p>Scanne avec WhatsApp</p>
@@ -46,24 +47,21 @@ async function startBot() {
     })
 
     sock.ev.on("connection.update", async (update) => {
-        const { connection, lastDisconnect, qr } = update
+        const { connection, qr } = update
 
         if (qr) {
             qrCodeData = qr
-            console.log("✅ QR généré (ouvre ton lien Railway)")
+            console.log("🔥 QR DISPONIBLE SUR LE SITE")
+        }
+
+        if (connection === "open") {
+            isConnected = true
+            qrCodeData = null
+            console.log("✅ CONNECTÉ À WHATSAPP")
         }
 
         if (connection === "close") {
-            const reason = lastDisconnect?.error?.output?.statusCode
-
-            if (reason !== DisconnectReason.loggedOut) {
-                console.log("🔄 Reconnexion...")
-                startBot()
-            } else {
-                console.log("❌ Session expirée, supprime /session")
-            }
-        } else if (connection === "open") {
-            console.log("✅ BOT CONNECTÉ")
+            console.log("❌ Déconnecté - PAS de reconnexion auto")
         }
     })
 
@@ -71,44 +69,19 @@ async function startBot() {
 
     sock.ev.on("messages.upsert", async ({ messages }) => {
         const msg = messages[0]
-
         if (!msg.message || msg.key.fromMe) return
 
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text
 
-        if (!text) return
-
-        if (text.toLowerCase() === "menu") {
+        if (text === "menu") {
             await sock.sendMessage(msg.key.remoteJid, {
-                text: `
-🤖 OLIMAX BOT
-
-👤 Créateur: OLIVIER MANGILA
-📞 Contact: +243981240435
-
-Commandes:
-- menu
-- bonjour
-- info
-                `
+                text: "🤖 OLIMAX BOT actif\nTape bonjour"
             })
         }
 
-        if (text.toLowerCase() === "bonjour") {
+        if (text === "bonjour") {
             await sock.sendMessage(msg.key.remoteJid, {
-                text: "👋 Bonjour ! Bienvenue sur OLIMAX BOT"
-            })
-        }
-
-        if (text.toLowerCase() === "info") {
-            await sock.sendMessage(msg.key.remoteJid, {
-                text: `
-🤖 OLIMAX BOT v4
-
-Créé par: OLIVIER MANGILA
-WhatsApp: +243981240435
-Statut: Actif 24h/24 🚀
-                `
+                text: "👋 Salut, je suis OLIMAX BOT"
             })
         }
     })
