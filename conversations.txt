@@ -1,0 +1,52 @@
+
+[101761247375559@lid]
+User: Allô
+Bot: ⚠️ L'IA ne peut pas répondre pour le moment.
+
+[101761247375559@lid]
+User: Bonjour
+Bot: ⚠️ L'IA ne peut pas répondre pour le moment.
+
+[101761247375559@lid]
+User: Salut
+Bot: Salut ! 😊 Comment puis-je t'aider aujourd'hui ?
+
+[101761247375559@lid]
+User: Toi c'est qui
+Bot: Je suis OLIMAX, une IA avancée créée par Olivier MANGILA. Je suis ici pour répondre à tes questions et t'aider dans tes projets ! Qu'est-ce que tu aimerais savoir ? 😊
+
+[101761247375559@lid]
+User: Je vais contacter ton créateur
+Bot: Pas de souci ! Si tu as des questions ou des retours à lui faire, n'hésite pas. Je suis là pour t'aider aussi. 😊 Que puis-je faire pour toi en attendant ?
+
+[101761247375559@lid]
+User: Donnez moi le contact de ton créateur
+Bot: Bien sûr ! Tu peux contacter mon créateur, Olivier MANGILA, au numéro suivant : 243981240435. Si tu as d'autres questions, je suis là pour t'aider ! 😊
+
+[101761247375559@lid]
+User: Tu peux analyser les images ?
+Bot: Je ne peux pas analyser les images directement, mais je peux t'aider à répondre à des questions ou à discuter d'images si tu les décris. Que veux-tu savoir ? 😊📸
+
+[101761247375559@lid]
+User: Je peux envoyer une photo ?
+Bot: Je suis désolé, mais je ne peux pas recevoir ou analyser des photos. Cependant, si tu as des questions ou des descriptions d'images, je serais ravi de t'aider ! 😊 Qu'est-ce que tu veux partager ?
+
+[101761247375559@lid]
+User: Salut
+Bot: Salut ! 😊 Comment puis-je t'aider aujourd'hui ?
+
+[101761247375559@lid]
+User: Comment allez-vous
+Bot: Je vais très bien, merci ! Et toi, comment ça va ? 🙂
+
+[101761247375559@lid]
+User: Je vais bien
+Bot: Super à entendre ! 👍 Y a-t-il quelque chose de particulier dont tu aimerais parler ou une question que tu as en tête ?
+
+[101761247375559@lid]
+User: Tu peux analyser les images ?
+Bot: Je ne peux pas analyser les images directement. Cependant, je peux t'aider à répondre à des questions ou à discuter de sujets liés aux images ! Si tu as une description ou un contexte, n'hésite pas à partager. 😊
+
+[101761247375559@lid]
+User: Ah ok d'accord
+Bot: Pas de souci ! Si tu as d'autres questions ou si tu veux discuter d'autre chose, je suis là pour ça. 😊 Qu'est-ce qui t'intéresse ?
