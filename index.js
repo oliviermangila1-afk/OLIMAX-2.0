@@ -46,6 +46,16 @@ app.listen(PORT, () => {
   console.log("🌍 Serveur lancé sur le port " + PORT)
 })
 
+/* ================= KEEP ALIVE RAILWAY ================= */
+
+// Empêche Railway d’endormir le service
+setInterval(async () => {
+  try {
+    await axios.get(`http://localhost:${PORT}`)
+    console.log("🔄 Keep alive ping")
+  } catch {}
+}, 300000) // toutes les 5 minutes
+
 /* ================= ANTI SPAM ================= */
 
 let processing = new Set()
@@ -99,24 +109,15 @@ async function askAI(userId, text) {
     ) {
       return `🤖 *OLIMAX*
 
-👨‍💻 J’ai été créé par : *Olivier MANGILA*
+👨‍💻 Créé par : *Olivier MANGILA*
 
-✨ Développeur spécialisé en Intelligence Artificielle,
-Automatisation WhatsApp et intégration API avancée.
-
-🚀 Architecte principal de OLIMAX.
-
-📞 Contact WhatsApp : 243981240435`
+📞 WhatsApp : 243981240435`
     }
 
     const systemPrompt = `
 Tu es OLIMAX 🤖🔥
 Créateur UNIQUE : Olivier MANGILA.
-
 Réponses intelligentes, structurées et professionnelles.
-Utilise des emojis pertinents.
-Si math → Résolution étape par étape.
-Si science → Explication + solution.
 `
 
     const response = await axios.post(
@@ -149,116 +150,19 @@ Si science → Explication + solution.
     return reply
 
   } catch (error) {
-    console.log(error.response?.data || error.message)
-    return "⚠️ Petite instabilité réseau, réessaie dans quelques secondes."
-  }
-}
-
-/* ================= IMAGE ================= */
-
-async function analyzeImage(buffer) {
-  try {
-    const base64Image = buffer.toString("base64")
-
-    const response = await axios.post(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        model: "openai/gpt-4o-mini",
-        max_tokens: 800,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "Analyse cette image intelligemment et donne une réponse structurée." },
-              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } }
-            ]
-          }
-        ]
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        timeout: 40000
-      }
-    )
-
-    return response.data.choices[0].message.content
-
-  } catch (err) {
-    console.log(err)
-    return "⚠️ Erreur analyse image."
-  }
-}
-
-/* ================= TRANSCRIPTION VOCAL ================= */
-
-async function transcribeAudio(buffer) {
-  try {
-
-    const form = new FormData()
-
-    form.append("file", buffer, {
-      filename: "audio.ogg",
-      contentType: "audio/ogg"
-    })
-
-    form.append("model", "openai/whisper-1")
-
-    const response = await axios.post(
-      "https://openrouter.ai/api/v1/audio/transcriptions",
-      form,
-      {
-        headers: {
-          Authorization: `Bearer ${API_KEY}`,
-          ...form.getHeaders()
-        },
-        timeout: 30000
-      }
-    )
-
-    return response.data.text
-
-  } catch (err) {
-    console.log("Erreur transcription:", err.response?.data || err.message)
-    return null
-  }
-}
-
-/* ================= TEXT TO SPEECH ================= */
-
-async function textToSpeech(text) {
-  try {
-
-    const response = await axios.post(
-      "https://openrouter.ai/api/v1/audio/speech",
-      {
-        model: "openai/tts-1",
-        voice: "alloy",
-        input: text
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        responseType: "arraybuffer",
-        timeout: 30000
-      }
-    )
-
-    return Buffer.from(response.data)
-
-  } catch (err) {
-    console.log(err)
-    return null
+    console.log("Erreur IA:", error.response?.data || error.message)
+    return "⚠️ Petite instabilité réseau, réessaie."
   }
 }
 
 /* ================= BOT ================= */
 
+let isConnecting = false
+
 async function startBot() {
+
+  if (isConnecting) return
+  isConnecting = true
 
   const { state, saveCreds } = await useMultiFileAuthState("session")
   const { version } = await fetchLatestBaileysVersion()
@@ -280,13 +184,24 @@ async function startBot() {
     }
 
     if (connection === "close") {
-      const shouldReconnect =
-        lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
-      if (shouldReconnect) startBot()
+
+      const statusCode = lastDisconnect?.error?.output?.statusCode
+      console.log("❌ Connexion fermée :", statusCode)
+
+      isConnecting = false
+
+      if (statusCode === DisconnectReason.loggedOut) {
+        console.log("🔒 Déconnecté définitivement.")
+        return
+      }
+
+      console.log("🔄 Reconnexion dans 5 secondes...")
+      setTimeout(() => startBot(), 5000)
     }
 
     if (connection === "open") {
       console.log("✅ OLIMAX 2.0 connecté 🚀")
+      isConnecting = false
     }
   })
 
@@ -306,38 +221,6 @@ async function startBot() {
 
       await sock.sendPresenceUpdate("composing", chat)
 
-      if (msg.message.imageMessage) {
-        const buffer = await downloadMediaMessage(msg, "buffer", {})
-        const reply = await analyzeImage(buffer)
-        await sock.sendMessage(chat, { text: reply })
-        return
-      }
-
-      if (msg.message.audioMessage) {
-        const buffer = await downloadMediaMessage(msg, "buffer", {})
-        const transcript = await transcribeAudio(buffer)
-
-        if (!transcript) {
-          await sock.sendMessage(chat, { text: "⚠️ Impossible de comprendre le vocal." })
-          return
-        }
-
-        const reply = await askAI(chat, transcript)
-        const audioReply = await textToSpeech(reply)
-
-        if (audioReply) {
-          await sock.sendMessage(chat, {
-            audio: audioReply,
-            mimetype: "audio/mpeg",
-            ptt: true
-          })
-        } else {
-          await sock.sendMessage(chat, { text: reply })
-        }
-
-        return
-      }
-
       const text =
         msg.message?.conversation ||
         msg.message?.extendedTextMessage?.text ||
@@ -353,7 +236,6 @@ async function startBot() {
     } finally {
       processing.delete(chat)
     }
-
   })
 }
 
