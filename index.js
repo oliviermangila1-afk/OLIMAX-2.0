@@ -356,7 +356,8 @@ async function startBot() {
         return
       }
 
-      const reply = await askAI(chat, text)
+      const reply = "TEST OK 🚀"
+await sock.sendMessage(chat, { text: reply })
       await sock.sendMessage(chat, { text: reply })
 
       processing.delete(chat)
