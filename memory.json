@@ -1011,6 +1011,38 @@
     {
       "role": "assistant",
       "content": "Je suis ravi que tu trouves cela intéressant ! 😊 Si tu as d'autres questions ou si tu souhaites explorer un autre sujet, n'hésite pas à me le dire. Je suis là pour t'aider !"
+    },
+    {
+      "role": "user",
+      "content": "Salut"
+    },
+    {
+      "role": "assistant",
+      "content": "Salut, Olivier ! 😊 Comment puis-je t'aider aujourd'hui ?"
+    },
+    {
+      "role": "user",
+      "content": "Tu va bien ?"
+    },
+    {
+      "role": "assistant",
+      "content": "Je vais très bien, merci ! 😊 Et toi, comment ça va ? Si tu as des questions ou des sujets à discuter, je suis là pour t'aider !"
+    },
+    {
+      "role": "user",
+      "content": "Patiente un peu"
+    },
+    {
+      "role": "assistant",
+      "content": "Pas de souci, prends ton temps ! Je suis ici quand tu es prêt. 😊"
+    },
+    {
+      "role": "user",
+      "content": "git add session\ngit add .\ngit commit -m \"Ajout session WhatsApp\"\ngit push"
+    },
+    {
+      "role": "assistant",
+      "content": "Ces commandes Git que tu as partagées sont utilisées pour ajouter des fichiers à un dépôt, enregistrer des modifications et les pousser vers un serveur distant. Voici une explication de chaque commande :\n\n### 1. `git add session`\n- Cette commande ajoute le fichier ou le dossier nommé `session` à l'index de Git, préparant ce changement pour le prochain commit. Si `session` est un dossier, tous les fichiers à l'intérieur seront également ajoutés.\n\n### 2. `git add .`\n- Cette commande ajoute tous les fichiers modifiés et nouvellement créés dans le répertoire courant et ses sous-répertoires à l'index de Git. C'est une manière pratique d'ajouter plusieurs fichiers à la fois.\n\n### 3. `git commit -m \"Ajout session WhatsApp\"`\n- Cette commande crée un nouveau commit avec les fichiers ajoutés à l'index. Le texte entre les guillemets (`\"Ajout session WhatsApp\"`) est le message de commit qui décrit les modifications apportées. Il est important d'utiliser des messages de commit clairs et descriptifs pour faciliter la compréhension de l'historique des modifications.\n\n### 4. `git push`\n- Cette commande envoie les commits locaux à un dépôt distant, tel que GitHub, GitLab ou Bitbucket. Elle met à jour le dépôt distant avec les modifications que tu as effectuées localement.\n\n### Exemple d'utilisation\nVoici comment tu pourrais utiliser ces commandes dans un terminal :\n\n```bash\ngit add session        # Ajoute le fichier ou dossier \"session\"\ngit add .              # Ajoute tous les changements\ngit commit -m \"Ajout session WhatsApp\"  # Crée un commit avec un message\ngit push               # Pousse les changements vers le dépôt distant\n```\n\n### Remarque\nAssure-toi d'être dans le bon répertoire de ton projet Git avant d'exécuter ces commandes. Si tu as des questions supplémentaires sur Git ou sur d'autres sujets, n'hésite pas à demander ! 😊"
     }
   ],
   "120363425198397900@g.us": [
