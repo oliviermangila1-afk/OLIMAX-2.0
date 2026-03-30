@@ -58,41 +58,38 @@ async function askAI(userId, text) {
     if (!memory[userId]) memory[userId] = []
 
     const lower = text.toLowerCase()
-// Fuseau horaire Afrique/Kinshasa
-const timeZone = "Africa/Kinshasa"
-const now = new Date()
+    const timeZone = "Africa/Kinshasa"
+    const now = new Date()
 
-// Heure intelligente
-if (lower.includes("heure")) {
-  const heure = now.toLocaleTimeString("fr-FR", {
-    timeZone,
-    hour: "2-digit",
-    minute: "2-digit"
-  })
+    if (lower.includes("heure")) {
+      const heure = now.toLocaleTimeString("fr-FR", {
+        timeZone,
+        hour: "2-digit",
+        minute: "2-digit"
+      })
 
-  const hourNumber = parseInt(
-    now.toLocaleTimeString("fr-FR", { timeZone, hour: "2-digit", hour12: false })
-  )
+      const hourNumber = parseInt(
+        now.toLocaleTimeString("fr-FR", { timeZone, hour: "2-digit", hour12: false })
+      )
 
-  let moment = "Bonsoir 🌙"
-  if (hourNumber >= 5 && hourNumber < 12) moment = "Bonjour ☀️"
-  else if (hourNumber >= 12 && hourNumber < 18) moment = "Bon après-midi 🌤"
+      let moment = "Bonsoir 🌙"
+      if (hourNumber >= 5 && hourNumber < 12) moment = "Bonjour ☀️"
+      else if (hourNumber >= 12 && hourNumber < 18) moment = "Bon après-midi 🌤"
 
-  return `${moment} 😊\n🕒 Il est actuellement ${heure} (heure de Kinshasa 🇨🇩)`
-}
+      return `${moment} 😊\n🕒 Il est actuellement ${heure} (heure de Kinshasa 🇨🇩)`
+    }
 
-// Date intelligente
-if (lower.includes("quel jour") || lower.includes("date")) {
-  const date = now.toLocaleDateString("fr-FR", {
-    timeZone,
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric"
-  })
+    if (lower.includes("quel jour") || lower.includes("date")) {
+      const date = now.toLocaleDateString("fr-FR", {
+        timeZone,
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+      })
 
-  return `📅 Nous sommes le ${date} (Kinshasa 🇨🇩)`
-}
+      return `📅 Nous sommes le ${date} (Kinshasa 🇨🇩)`
+    }
 
     if (
       lower.includes("qui t'a créé") ||
@@ -161,7 +158,6 @@ Si science → Explication + solution.
 
 async function analyzeImage(buffer) {
   try {
-
     const base64Image = buffer.toString("base64")
 
     const response = await axios.post(
@@ -174,10 +170,7 @@ async function analyzeImage(buffer) {
             role: "user",
             content: [
               { type: "text", text: "Analyse cette image intelligemment et donne une réponse structurée." },
-              {
-                type: "image_url",
-                image_url: { url: `data:image/jpeg;base64,${base64Image}` }
-              }
+              { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64Image}` } }
             ]
           }
         ]
@@ -186,7 +179,8 @@ async function analyzeImage(buffer) {
         headers: {
           Authorization: `Bearer ${API_KEY}`,
           "Content-Type": "application/json"
-        }
+        },
+        timeout: 40000
       }
     )
 
@@ -249,7 +243,8 @@ async function textToSpeech(text) {
           Authorization: `Bearer ${API_KEY}`,
           "Content-Type": "application/json"
         },
-        responseType: "arraybuffer"
+        responseType: "arraybuffer",
+        timeout: 30000
       }
     )
 
@@ -315,7 +310,6 @@ async function startBot() {
         const buffer = await downloadMediaMessage(msg, "buffer", {})
         const reply = await analyzeImage(buffer)
         await sock.sendMessage(chat, { text: reply })
-        processing.delete(chat)
         return
       }
 
@@ -325,7 +319,6 @@ async function startBot() {
 
         if (!transcript) {
           await sock.sendMessage(chat, { text: "⚠️ Impossible de comprendre le vocal." })
-          processing.delete(chat)
           return
         }
 
@@ -342,7 +335,6 @@ async function startBot() {
           await sock.sendMessage(chat, { text: reply })
         }
 
-        processing.delete(chat)
         return
       }
 
@@ -351,19 +343,14 @@ async function startBot() {
         msg.message?.extendedTextMessage?.text ||
         msg.message?.imageMessage?.caption
 
-      if (!text) {
-        processing.delete(chat)
-        return
-      }
+      if (!text) return
 
-      const reply = "TEST OK 🚀"
-await sock.sendMessage(chat, { text: reply })
+      const reply = await askAI(chat, text)
       await sock.sendMessage(chat, { text: reply })
 
-      processing.delete(chat)
-
     } catch (err) {
-      console.log(err)
+      console.log("Erreur message:", err)
+    } finally {
       processing.delete(chat)
     }
 
@@ -371,3 +358,13 @@ await sock.sendMessage(chat, { text: reply })
 }
 
 startBot()
+
+/* ================= ANTI CRASH GLOBAL ================= */
+
+process.on("uncaughtException", err => {
+  console.error("Uncaught Exception:", err)
+})
+
+process.on("unhandledRejection", err => {
+  console.error("Unhandled Rejection:", err)
+})
